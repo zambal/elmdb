@@ -1,0 +1,7 @@
+priv
+ebin
+.eunit
+.rebar
+c_src/*.o
+c_src/*.d
+*~
