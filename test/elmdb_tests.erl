@@ -172,13 +172,13 @@ txn_put_get({Env, Dbi, _}) ->
             ?assertMatch(ok, elmdb:txn_abort(Txn1)),
             ?assertMatch(not_found, elmdb:get(Dbi, <<"a">>)),
             {ok, Txn2} = elmdb:txn_begin(Env),
-            ?assertError(badarg, elmdb:txn_put(Txn1, Dbi, <<"a">>, <<"1">>)),
+            ?assertMatch({error, txn_closed}, elmdb:txn_put(Txn1, Dbi, <<"a">>, <<"1">>)),
             ?assertMatch(ok, elmdb:txn_put(Txn2, Dbi, <<"a">>, <<"1">>)),
             ?assertMatch({ok, <<"1">>}, elmdb:txn_get(Txn2, Dbi, <<"a">>)),
             ?assertMatch(ok, elmdb:txn_commit(Txn2)),
             ?assertMatch({ok, <<"1">>}, elmdb:get(Dbi, <<"a">>)),
-            ?assertError(badarg, elmdb:txn_get(Txn2, Dbi, <<"a">>)),
-            ?assertError(badarg, elmdb:txn_commit(Txn2)),
+            ?assertMatch({error, txn_closed}, elmdb:txn_get(Txn2, Dbi, <<"a">>)),
+            ?assertMatch({error, txn_closed}, elmdb:txn_commit(Txn2)),
             ?assertMatch(ok, elmdb:txn_abort(Txn2))
     end.
 
