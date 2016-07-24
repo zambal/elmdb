@@ -196,34 +196,34 @@ static ERL_NIF_TERM ATOM_PREV_NODUP;
 static ERL_NIF_TERM ATOM_SET;
 static ERL_NIF_TERM ATOM_SET_RANGE;
 
-#define NEW(stype, var)                                                \
-  stype *var;                                                          \
-  var = (stype *) enif_alloc(sizeof(stype));                           \
-  var->msg_env = enif_alloc_env();                                     \
-  enif_self(env, &var->caller);                                        \
-  var->ref = enif_make_copy(var->msg_env, argv[0]);                    \
+#define NEW(stype, var)                                 \
+  stype *var;                                           \
+  var = (stype *) enif_alloc(sizeof(stype));            \
+  var->msg_env = enif_alloc_env();                      \
+  enif_self(env, &var->caller);                         \
+  var->ref = enif_make_copy(var->msg_env, argv[0]);     \
 
-#define NEW_OP(stype, var)                                             \
-  stype *var;                                                          \
-  var = (stype *) enif_alloc(sizeof(stype));                           \
-  var->msg_env = enif_alloc_env();                                     \
-  enif_self(env, &var->caller);                                        \
-  var->ref = enif_make_copy(var->msg_env, argv[0]);                    \
-  var->args = NULL;                                                    \
+#define NEW_OP(stype, var)                              \
+  stype *var;                                           \
+  var = (stype *) enif_alloc(sizeof(stype));            \
+  var->msg_env = enif_alloc_env();                      \
+  enif_self(env, &var->caller);                         \
+  var->ref = enif_make_copy(var->msg_env, argv[0]);     \
+  var->args = NULL;                                     \
 
-#define FREE(var)              \
-  enif_free_env(var->msg_env); \
-  enif_free(var);              \
+#define FREE(var)                               \
+  enif_free_env(var->msg_env);                  \
+  enif_free(var);                               \
 
-#define FREE_OP(var)                          \
-  enif_free_env(var->msg_env);                \
-  if(var->args != NULL) enif_free(var->args); \
-  enif_free(var);                             \
+#define FREE_OP(var)                            \
+  enif_free_env(var->msg_env);                  \
+  if(var->args != NULL) enif_free(var->args);   \
+  enif_free(var);                               \
 
 #define PUSH(queue, x) STAILQ_INSERT_TAIL(&queue, x, entries)
-#define POP(queue, var)                \
-  var = STAILQ_FIRST(&queue);          \
-  STAILQ_REMOVE_HEAD(&queue, entries); \
+#define POP(queue, var)                         \
+  var = STAILQ_FIRST(&queue);                   \
+  STAILQ_REMOVE_HEAD(&queue, entries);          \
 
 #define ADD(list, var) SLIST_INSERT_HEAD(&list, var, entries)
 #define FOREACH(var, list) SLIST_FOREACH(var, &list, entries)
@@ -236,35 +236,35 @@ static ERL_NIF_TERM ATOM_SET_RANGE;
 #define SEND_ERR(var, msg) SEND(var, enif_make_tuple2(var->msg_env, ATOM_ERROR, msg))
 #define SEND_ERRNO(var, err) SEND(var, __strerror_term(var->msg_env, err))
 
-#define CHECK(expr, label)						\
-  if(MDB_SUCCESS != (ret = (expr))) {                                   \
-    err = __strerror_term(env, ret);                                    \
-    goto label;                                                         \
+#define CHECK(expr, label)                      \
+  if(MDB_SUCCESS != (ret = (expr))) {           \
+    err = __strerror_term(env, ret);            \
+    goto label;                                 \
   }
 
 #define OK(msg) enif_make_tuple2(env, ATOM_OK, msg)
 #define ERR(msg) enif_make_tuple2(env, ATOM_ERROR, msg)
 #define ERRNO(e) __strerror_term(env, (e))
 
-#define FAIL_ERR(msg, label)                                    \
-  do {                                                          \
-    err = ERR(msg);                                             \
-    goto label;                                                 \
-  } while(0)                                                    \
+#define FAIL_ERR(msg, label)                    \
+  do {                                          \
+    err = ERR(msg);                             \
+    goto label;                                 \
+  } while(0)                                    \
 
-#define FAIL_ERRNO(e, label)				\
-    do {						\
-      err = ERRNO(e);                                   \
-      goto label;					\
-    } while(0)
+#define FAIL_ERRNO(e, label)                    \
+  do {						\
+    err = ERRNO(e);                             \
+    goto label;					\
+  } while(0)
 
 #define BADARG enif_make_badarg(env)
 
-#define CHECK_ENV(elmdb_env)                                  \
-  if(elmdb_env->shutdown > 0) {                               \
-    enif_mutex_unlock(elmdb_env->status_lock);                \
-    return ERR(ATOM_ENV_CLOSED);                                  \
-  }                                                           \
+#define CHECK_ENV(elmdb_env)                    \
+  if(elmdb_env->shutdown > 0) {                 \
+    enif_mutex_unlock(elmdb_env->status_lock);  \
+    return ERR(ATOM_ENV_CLOSED);                \
+  }                                             \
 
 #define __UNUSED(v) ((void)(v))
 
@@ -280,73 +280,73 @@ static ERL_NIF_TERM ATOM_SET_RANGE;
 static ERL_NIF_TERM
 __strerror_term(ErlNifEnv* env, int err)
 {
-    ERL_NIF_TERM term = 0;
+  ERL_NIF_TERM term = 0;
 
-    if(err < MDB_LAST_ERRCODE && err > MDB_KEYEXIST) {
-      switch (err) {
-      case MDB_KEYEXIST: /** key/data pair already exists */
-        term = ATOM_KEYEXIST;
-        break;
-      case MDB_NOTFOUND: /** key/data pair not found (EOF) */
-        term = ATOM_NOT_FOUND;
-        break;
-      case MDB_PAGE_NOTFOUND: /** Requested page not found - this usually indicates corruption */
-        term = ATOM_PAGE_NOTFOUND;
-        break;
-      case MDB_CORRUPTED: /** Located page was wrong type */
-        term = ATOM_CORRUPTED;
-        break;
-      case MDB_PANIC	: /** Update of meta page failed, probably I/O error */
-	    term = ATOM_PANIC;
-	    break;
-      case MDB_VERSION_MISMATCH: /** Environment version mismatch */
-        term = ATOM_VERSION_MISMATCH;
-        break;
-      case MDB_INVALID: /** File is not a valid MDB file */
-        term = ATOM_KEYEXIST;
-        break;
-      case MDB_MAP_FULL: /** Environment mapsize reached */
-        term = ATOM_MAP_FULL;
-        break;
-      case MDB_DBS_FULL: /** Environment maxdbs reached */
-        term = ATOM_DBS_FULL;
-        break;
-      case MDB_READERS_FULL: /** Environment maxreaders reached */
-        term = ATOM_READERS_FULL;
-	    break;
-      case MDB_TLS_FULL: /** Too many TLS keys in use - Windows only */
-        term = ATOM_TLS_FULL;
-        break;
-      case MDB_TXN_FULL: /** Txn has too many dirty pages */
-        term = ATOM_TXN_FULL;
-        break;
-      case MDB_CURSOR_FULL: /** Cursor stack too deep - internal error */
-        term = ATOM_CURSOR_FULL;
-        break;
-      case MDB_PAGE_FULL: /** Page has not enough space - internal error */
-        term = ATOM_PAGE_FULL;
-        break;
-      case MDB_MAP_RESIZED: /** Database contents grew beyond environment mapsize */
-        term = ATOM_MAP_RESIZED;
-        break;
-      case MDB_INCOMPATIBLE: /** Database flags changed or would change */
-        term = ATOM_INCOMPATIBLE;
-        break;
-      case MDB_BAD_RSLOT: /** Invalid reuse of reader locktable slot */
-        term = ATOM_BAD_RSLOT;
-        break;
-      }
-    } else {
-      term = enif_make_atom(env, erl_errno_id(err));
+  if(err < MDB_LAST_ERRCODE && err > MDB_KEYEXIST) {
+    switch (err) {
+    case MDB_KEYEXIST: /** key/data pair already exists */
+      term = ATOM_KEYEXIST;
+      break;
+    case MDB_NOTFOUND: /** key/data pair not found (EOF) */
+      term = ATOM_NOT_FOUND;
+      break;
+    case MDB_PAGE_NOTFOUND: /** Requested page not found - this usually indicates corruption */
+      term = ATOM_PAGE_NOTFOUND;
+      break;
+    case MDB_CORRUPTED: /** Located page was wrong type */
+      term = ATOM_CORRUPTED;
+      break;
+    case MDB_PANIC	: /** Update of meta page failed, probably I/O error */
+      term = ATOM_PANIC;
+      break;
+    case MDB_VERSION_MISMATCH: /** Environment version mismatch */
+      term = ATOM_VERSION_MISMATCH;
+      break;
+    case MDB_INVALID: /** File is not a valid MDB file */
+      term = ATOM_KEYEXIST;
+      break;
+    case MDB_MAP_FULL: /** Environment mapsize reached */
+      term = ATOM_MAP_FULL;
+      break;
+    case MDB_DBS_FULL: /** Environment maxdbs reached */
+      term = ATOM_DBS_FULL;
+      break;
+    case MDB_READERS_FULL: /** Environment maxreaders reached */
+      term = ATOM_READERS_FULL;
+      break;
+    case MDB_TLS_FULL: /** Too many TLS keys in use - Windows only */
+      term = ATOM_TLS_FULL;
+      break;
+    case MDB_TXN_FULL: /** Txn has too many dirty pages */
+      term = ATOM_TXN_FULL;
+      break;
+    case MDB_CURSOR_FULL: /** Cursor stack too deep - internal error */
+      term = ATOM_CURSOR_FULL;
+      break;
+    case MDB_PAGE_FULL: /** Page has not enough space - internal error */
+      term = ATOM_PAGE_FULL;
+      break;
+    case MDB_MAP_RESIZED: /** Database contents grew beyond environment mapsize */
+      term = ATOM_MAP_RESIZED;
+      break;
+    case MDB_INCOMPATIBLE: /** Database flags changed or would change */
+      term = ATOM_INCOMPATIBLE;
+      break;
+    case MDB_BAD_RSLOT: /** Invalid reuse of reader locktable slot */
+      term = ATOM_BAD_RSLOT;
+      break;
     }
+  } else {
+    term = enif_make_atom(env, erl_errno_id(err));
+  }
 
-    /* We return the errno value as well as the message here because the error
-       message provided by strerror() for differ across platforms and/or may be
-       localized to any given language (i18n).  Use the errno atom rather than
-       the message when matching in Erlang.  You've been warned. */
-    return enif_make_tuple(env, 2, ATOM_ERROR,
-		enif_make_tuple(env, 2, term,
-		     enif_make_string(env, mdb_strerror(err), ERL_NIF_LATIN1)));
+  /* We return the errno value as well as the message here because the error
+     message provided by strerror() for differ across platforms and/or may be
+     localized to any given language (i18n).  Use the errno atom rather than
+     the message when matching in Erlang.  You've been warned. */
+  return enif_make_tuple(env, 2, ATOM_ERROR,
+                         enif_make_tuple(env, 2, term,
+                                         enif_make_string(env, mdb_strerror(err), ERL_NIF_LATIN1)));
 }
 
 static int to_mdb_cursor_op(ErlNifEnv *env, ERL_NIF_TERM op, MDB_val *key) {
@@ -626,24 +626,24 @@ static int get_env_open_opts(ErlNifEnv *env, ERL_NIF_TERM opts, uint64_t *mapsiz
     opts = tail;
 
     if(enif_is_atom(env, head) != 0) {
-        if(enif_is_identical(head, ATOM_FIXEDMAP) != 0)
-          _flags = _flags | MDB_FIXEDMAP;
-        if(enif_is_identical(head, ATOM_NOSUBDIR) != 0)
-          _flags = _flags | MDB_NOSUBDIR;
-        if(enif_is_identical(head, ATOM_RDONLY) != 0)
-          _flags = _flags | MDB_RDONLY;
-        if(enif_is_identical(head, ATOM_WRITEMAP) != 0)
-          _flags = _flags | MDB_WRITEMAP;
-        if(enif_is_identical(head, ATOM_NOMETASYNC) != 0)
-          _flags = _flags | MDB_NOMETASYNC;
-        if(enif_is_identical(head, ATOM_NOSYNC) != 0)
-          _flags = _flags | MDB_NOSYNC;
-        if(enif_is_identical(head, ATOM_MAPASYNC) != 0)
-          _flags = _flags | MDB_MAPASYNC;
-        if(enif_is_identical(head, ATOM_NORDAHEAD) != 0)
-          _flags = _flags | MDB_NORDAHEAD;
-        if(enif_is_identical(head, ATOM_NOMEMINIT) != 0)
-          _flags = _flags | MDB_NOMEMINIT;
+      if(enif_is_identical(head, ATOM_FIXEDMAP) != 0)
+        _flags = _flags | MDB_FIXEDMAP;
+      if(enif_is_identical(head, ATOM_NOSUBDIR) != 0)
+        _flags = _flags | MDB_NOSUBDIR;
+      if(enif_is_identical(head, ATOM_RDONLY) != 0)
+        _flags = _flags | MDB_RDONLY;
+      if(enif_is_identical(head, ATOM_WRITEMAP) != 0)
+        _flags = _flags | MDB_WRITEMAP;
+      if(enif_is_identical(head, ATOM_NOMETASYNC) != 0)
+        _flags = _flags | MDB_NOMETASYNC;
+      if(enif_is_identical(head, ATOM_NOSYNC) != 0)
+        _flags = _flags | MDB_NOSYNC;
+      if(enif_is_identical(head, ATOM_MAPASYNC) != 0)
+        _flags = _flags | MDB_MAPASYNC;
+      if(enif_is_identical(head, ATOM_NORDAHEAD) != 0)
+        _flags = _flags | MDB_NORDAHEAD;
+      if(enif_is_identical(head, ATOM_NOMEMINIT) != 0)
+        _flags = _flags | MDB_NOMEMINIT;
     }
     else if(enif_get_tuple(env, head, &tup_arity, &tup_array) != 0) {
       if(tup_arity == 2) {
@@ -673,14 +673,14 @@ static int get_db_open_opts(ErlNifEnv *env, ERL_NIF_TERM opts, unsigned int *fla
     opts = tail;
 
     if(enif_is_atom(env, head) != 0) {
-        if(enif_is_identical(head, ATOM_REVERSEKEY) != 0)
-          _flags = _flags | MDB_REVERSEKEY;
-        if(enif_is_identical(head, ATOM_DUPSORT) != 0)
-          _flags = _flags | MDB_DUPSORT;
-        if(enif_is_identical(head, ATOM_REVERSEDUP) != 0)
-          _flags = _flags | MDB_REVERSEDUP;
-        if(enif_is_identical(head, ATOM_CREATE) != 0)
-          _flags = _flags | MDB_CREATE;
+      if(enif_is_identical(head, ATOM_REVERSEKEY) != 0)
+        _flags = _flags | MDB_REVERSEKEY;
+      if(enif_is_identical(head, ATOM_DUPSORT) != 0)
+        _flags = _flags | MDB_DUPSORT;
+      if(enif_is_identical(head, ATOM_REVERSEDUP) != 0)
+        _flags = _flags | MDB_REVERSEDUP;
+      if(enif_is_identical(head, ATOM_CREATE) != 0)
+        _flags = _flags | MDB_CREATE;
     }
     else {
       return 0;
@@ -704,9 +704,9 @@ static ERL_NIF_TERM elmdb_env_open(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
   int ret;
 
   if(!(argc == 3 &&
-        enif_is_ref(env, argv[0]) &&
-        enif_is_list(env, argv[1]) &&
-        enif_is_list(env, argv[2]))) {
+       enif_is_ref(env, argv[0]) &&
+       enif_is_list(env, argv[1]) &&
+       enif_is_list(env, argv[2]))) {
     return BADARG;
   }
 
@@ -740,7 +740,7 @@ static ERL_NIF_TERM elmdb_env_close(ErlNifEnv* env, int argc, const ERL_NIF_TERM
   ElmdbEnv *elmdb_env;
 
   if(!(argc == 1 &&
-        enif_get_resource(env, argv[0], elmdb_env_res, (void**)&elmdb_env))) {
+       enif_get_resource(env, argv[0], elmdb_env_res, (void**)&elmdb_env))) {
     return BADARG;
   }
   enif_mutex_lock(elmdb_env->status_lock);
@@ -763,7 +763,7 @@ static ERL_NIF_TERM elmdb_env_close_by_name(ErlNifEnv* env, int argc, const ERL_
   ElmdbPriv *priv = (ElmdbPriv*)enif_priv_data(env);
 
   if(!(argc == 1 &&
-        enif_is_list(env, argv[0]))) {
+       enif_is_list(env, argv[0]))) {
     return BADARG;
   }
 
@@ -842,10 +842,10 @@ static ERL_NIF_TERM elmdb_db_open(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
   unsigned int flags = 0;
 
   if(!(argc == 4 &&
-        enif_is_ref(env, argv[0]) &&
-        enif_get_resource(env, argv[1], elmdb_env_res, (void**)&elmdb_env) &&
-        enif_inspect_binary(env, argv[2], &db_name) &&
-        enif_is_list(env, argv[3]) && get_db_open_opts(env, argv[3], &flags))) {
+       enif_is_ref(env, argv[0]) &&
+       enif_get_resource(env, argv[1], elmdb_env_res, (void**)&elmdb_env) &&
+       enif_inspect_binary(env, argv[2], &db_name) &&
+       enif_is_list(env, argv[3]) && get_db_open_opts(env, argv[3], &flags))) {
     return BADARG;
   }
   enif_mutex_lock(elmdb_env->status_lock);
@@ -898,8 +898,8 @@ static ERL_NIF_TERM elmdb_txn_begin(ErlNifEnv* env, int argc, const ERL_NIF_TERM
   ElmdbEnv *elmdb_env;
 
   if(!(argc == 2 &&
-        enif_is_ref(env, argv[0]) &&
-        enif_get_resource(env, argv[1], elmdb_env_res, (void**)&elmdb_env))) {
+       enif_is_ref(env, argv[0]) &&
+       enif_get_resource(env, argv[1], elmdb_env_res, (void**)&elmdb_env))) {
     return BADARG;
   }
   enif_mutex_lock(elmdb_env->status_lock);
@@ -940,11 +940,11 @@ static ERL_NIF_TERM do_txn_put(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
   ErlNifBinary bin_val;
 
   if(!(argc == 5 &&
-        enif_is_ref(env, argv[0]) &&
-        enif_get_resource(env, argv[1], elmdb_txn_res, (void**)&elmdb_txn) &&
-        enif_get_resource(env, argv[2], elmdb_dbi_res, (void**)&elmdb_dbi) &&
-        enif_is_binary(env, argv[3]) &&
-        enif_is_binary(env, argv[4]))) {
+       enif_is_ref(env, argv[0]) &&
+       enif_get_resource(env, argv[1], elmdb_txn_res, (void**)&elmdb_txn) &&
+       enif_get_resource(env, argv[2], elmdb_dbi_res, (void**)&elmdb_dbi) &&
+       enif_is_binary(env, argv[3]) &&
+       enif_is_binary(env, argv[4]))) {
     return BADARG;
   }
   enif_mutex_lock(elmdb_txn->elmdb_env->status_lock);
@@ -1015,10 +1015,10 @@ static ERL_NIF_TERM elmdb_txn_get(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
   ErlNifBinary bin_key;
 
   if(!(argc == 4 &&
-        enif_is_ref(env, argv[0]) &&
-        enif_get_resource(env, argv[1], elmdb_txn_res, (void**)&elmdb_txn) &&
-        enif_get_resource(env, argv[2], elmdb_dbi_res, (void**)&elmdb_dbi) &&
-        enif_is_binary(env, argv[3]))) {
+       enif_is_ref(env, argv[0]) &&
+       enif_get_resource(env, argv[1], elmdb_txn_res, (void**)&elmdb_txn) &&
+       enif_get_resource(env, argv[2], elmdb_dbi_res, (void**)&elmdb_dbi) &&
+       enif_is_binary(env, argv[3]))) {
     return BADARG;
   }
   enif_mutex_lock(elmdb_txn->elmdb_env->status_lock);
@@ -1064,8 +1064,8 @@ static ERL_NIF_TERM elmdb_txn_commit(ErlNifEnv* env, int argc, const ERL_NIF_TER
   ElmdbTxn *elmdb_txn;
 
   if(!(argc == 2 &&
-        enif_is_ref(env, argv[0]) &&
-        enif_get_resource(env, argv[1], elmdb_txn_res, (void**)&elmdb_txn))) {
+       enif_is_ref(env, argv[0]) &&
+       enif_get_resource(env, argv[1], elmdb_txn_res, (void**)&elmdb_txn))) {
     return BADARG;
   }
   enif_mutex_lock(elmdb_txn->elmdb_env->status_lock);
@@ -1097,8 +1097,8 @@ static ERL_NIF_TERM elmdb_txn_abort(ErlNifEnv* env, int argc, const ERL_NIF_TERM
   ElmdbTxn *elmdb_txn;
 
   if(!(argc == 2 &&
-        enif_is_ref(env, argv[0]) &&
-        enif_get_resource(env, argv[1], elmdb_txn_res, (void**)&elmdb_txn))) {
+       enif_is_ref(env, argv[0]) &&
+       enif_get_resource(env, argv[1], elmdb_txn_res, (void**)&elmdb_txn))) {
     return BADARG;
   }
   enif_mutex_lock(elmdb_txn->elmdb_env->status_lock);
@@ -1147,9 +1147,9 @@ static ERL_NIF_TERM elmdb_txn_cursor_open(ErlNifEnv* env, int argc, const ERL_NI
   ElmdbDbi *elmdb_dbi;
 
   if(!(argc == 3 &&
-        enif_is_ref(env, argv[0]) &&
-        enif_get_resource(env, argv[1], elmdb_txn_res, (void**)&elmdb_txn) &&
-        enif_get_resource(env, argv[2], elmdb_dbi_res, (void**)&elmdb_dbi))) {
+       enif_is_ref(env, argv[0]) &&
+       enif_get_resource(env, argv[1], elmdb_txn_res, (void**)&elmdb_txn) &&
+       enif_get_resource(env, argv[2], elmdb_dbi_res, (void**)&elmdb_dbi))) {
     return BADARG;
   }
   enif_mutex_lock(elmdb_txn->elmdb_env->status_lock);
@@ -1210,9 +1210,9 @@ static ERL_NIF_TERM elmdb_txn_cursor_get(ErlNifEnv* env, int argc, const ERL_NIF
   ElmdbCur *elmdb_cur;
 
   if(!(argc == 3 &&
-        enif_is_ref(env, argv[0]) &&
-        enif_get_resource(env, argv[1], elmdb_cur_res, (void**)&elmdb_cur) &&
-        (enif_is_atom(env, argv[2]) || enif_is_tuple(env, argv[2])))) {
+       enif_is_ref(env, argv[0]) &&
+       enif_get_resource(env, argv[1], elmdb_cur_res, (void**)&elmdb_cur) &&
+       (enif_is_atom(env, argv[2]) || enif_is_tuple(env, argv[2])))) {
     return BADARG;
   }
   enif_mutex_lock(elmdb_cur->elmdb_txn->elmdb_env->status_lock);
@@ -1256,10 +1256,10 @@ static ERL_NIF_TERM elmdb_txn_cursor_put(ErlNifEnv* env, int argc, const ERL_NIF
   ErlNifBinary bin_val;
 
   if(!(argc == 4 &&
-        enif_is_ref(env, argv[0]) &&
-        enif_get_resource(env, argv[1], elmdb_cur_res, (void**)&elmdb_cur) &&
-        enif_is_binary(env, argv[2]) &&
-        enif_is_binary(env, argv[3]))) {
+       enif_is_ref(env, argv[0]) &&
+       enif_get_resource(env, argv[1], elmdb_cur_res, (void**)&elmdb_cur) &&
+       enif_is_binary(env, argv[2]) &&
+       enif_is_binary(env, argv[3]))) {
     return BADARG;
   }
   enif_mutex_lock(elmdb_cur->elmdb_txn->elmdb_env->status_lock);
@@ -1328,10 +1328,10 @@ static ERL_NIF_TERM elmdb_async_put(ErlNifEnv* env, int argc, const ERL_NIF_TERM
   ErlNifBinary bin_key;
   ErlNifBinary bin_val;
   if(!(argc == 4 &&
-        enif_is_ref(env, argv[0]) &&
-        enif_get_resource(env, argv[1], elmdb_dbi_res, (void**)&elmdb_dbi) &&
-        enif_is_binary(env, argv[2]) &&
-        enif_is_binary(env, argv[3]))) {
+       enif_is_ref(env, argv[0]) &&
+       enif_get_resource(env, argv[1], elmdb_dbi_res, (void**)&elmdb_dbi) &&
+       enif_is_binary(env, argv[2]) &&
+       enif_is_binary(env, argv[3]))) {
     return BADARG;
   }
   enif_mutex_lock(elmdb_dbi->elmdb_env->status_lock);
@@ -1404,9 +1404,9 @@ static ERL_NIF_TERM do_async_get(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
   ErlNifBinary bin_key;
 
   if(!(argc == 3 &&
-        enif_is_ref(env, argv[0]) &&
-        enif_get_resource(env, argv[1], elmdb_dbi_res, (void**)&elmdb_dbi) &&
-        enif_is_binary(env, argv[2]))) {
+       enif_is_ref(env, argv[0]) &&
+       enif_get_resource(env, argv[1], elmdb_dbi_res, (void**)&elmdb_dbi) &&
+       enif_is_binary(env, argv[2]))) {
     return BADARG;
   }
   enif_mutex_lock(elmdb_dbi->elmdb_env->status_lock);
@@ -1533,9 +1533,9 @@ static ERL_NIF_TERM elmdb_put(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
   int ret;
 
   if(!(argc == 3 &&
-        enif_get_resource(env, argv[0], elmdb_dbi_res, (void**)&elmdb_dbi) &&
-        enif_inspect_binary(env, argv[1], &key) &&
-        enif_inspect_binary(env, argv[2], &val))) {
+       enif_get_resource(env, argv[0], elmdb_dbi_res, (void**)&elmdb_dbi) &&
+       enif_inspect_binary(env, argv[1], &key) &&
+       enif_inspect_binary(env, argv[2], &val))) {
     return BADARG;
   }
   enif_mutex_lock(elmdb_dbi->elmdb_env->status_lock);
@@ -1578,9 +1578,9 @@ static ERL_NIF_TERM elmdb_put_new(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
   int ret;
 
   if(!(argc == 3 &&
-        enif_get_resource(env, argv[0], elmdb_dbi_res, (void**)&elmdb_dbi) &&
-        enif_inspect_binary(env, argv[1], &key) &&
-        enif_inspect_binary(env, argv[2], &val))) {
+       enif_get_resource(env, argv[0], elmdb_dbi_res, (void**)&elmdb_dbi) &&
+       enif_inspect_binary(env, argv[1], &key) &&
+       enif_inspect_binary(env, argv[2], &val))) {
     return BADARG;
   }
   enif_mutex_lock(elmdb_dbi->elmdb_env->status_lock);
@@ -1630,8 +1630,8 @@ static ERL_NIF_TERM elmdb_get(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
   int ret;
 
   if(!(argc == 2 &&
-        enif_get_resource(env, argv[0], elmdb_dbi_res, (void**)&elmdb_dbi) &&
-        enif_inspect_binary(env, argv[1], &key))) {
+       enif_get_resource(env, argv[0], elmdb_dbi_res, (void**)&elmdb_dbi) &&
+       enif_inspect_binary(env, argv[1], &key))) {
     return BADARG;
   }
   enif_mutex_lock(elmdb_dbi->elmdb_env->status_lock);
@@ -1680,8 +1680,8 @@ static ERL_NIF_TERM elmdb_delete(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
   int ret;
 
   if(!(argc == 2 &&
-        enif_get_resource(env, argv[0], elmdb_dbi_res, (void**)&elmdb_dbi) &&
-        enif_inspect_iolist_as_binary(env, argv[1], &key))) {
+       enif_get_resource(env, argv[0], elmdb_dbi_res, (void**)&elmdb_dbi) &&
+       enif_inspect_iolist_as_binary(env, argv[1], &key))) {
     return BADARG;
   }
   enif_mutex_lock(elmdb_dbi->elmdb_env->status_lock);
@@ -1723,7 +1723,7 @@ static ERL_NIF_TERM elmdb_drop(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
   int ret;
 
   if(!(argc == 1 &&
-        enif_get_resource(env, argv[0], elmdb_dbi_res, (void**)&elmdb_dbi))) {
+       enif_get_resource(env, argv[0], elmdb_dbi_res, (void**)&elmdb_dbi))) {
     return BADARG;
   }
   enif_mutex_lock(elmdb_dbi->elmdb_env->status_lock);
@@ -1751,14 +1751,14 @@ static ERL_NIF_TERM elmdb_ro_txn_begin(ErlNifEnv* env, int argc, const ERL_NIF_T
     return ERRNO(ENOMEM);
 
   if(!(argc == 1 &&
-        enif_get_resource(env, argv[0], elmdb_env_res, (void**)&elmdb_env))) {
+       enif_get_resource(env, argv[0], elmdb_env_res, (void**)&elmdb_env))) {
     return BADARG;
   }
   enif_mutex_lock(elmdb_env->status_lock);
   CHECK_ENV(elmdb_env);
   enif_mutex_unlock(elmdb_env->status_lock);
   if((ret = mdb_txn_begin(elmdb_env->env, NULL, MDB_RDONLY, &ro_txn->txn)) != MDB_SUCCESS)
-     return ERRNO(ret);
+    return ERRNO(ret);
 
   ro_txn->elmdb_env = elmdb_env;
   ro_txn->active = 1;
@@ -1787,9 +1787,9 @@ static ERL_NIF_TERM elmdb_ro_txn_get(ErlNifEnv* env, int argc, const ERL_NIF_TER
   int ret;
 
   if(!(argc == 3 &&
-        enif_get_resource(env, argv[0], elmdb_ro_txn_res, (void**)&ro_txn) &&
-        enif_get_resource(env, argv[1], elmdb_dbi_res, (void**)&elmdb_dbi) &&
-        enif_inspect_binary(env, argv[2], &key))) {
+       enif_get_resource(env, argv[0], elmdb_ro_txn_res, (void**)&ro_txn) &&
+       enif_get_resource(env, argv[1], elmdb_dbi_res, (void**)&elmdb_dbi) &&
+       enif_inspect_binary(env, argv[2], &key))) {
     return BADARG;
   }
   enif_mutex_lock(ro_txn->elmdb_env->status_lock);
@@ -1834,8 +1834,8 @@ static ERL_NIF_TERM elmdb_ro_txn_cursor_open(ErlNifEnv* env, int argc, const ERL
     return ERRNO(ENOMEM);
 
   if(!(argc == 2 &&
-        enif_get_resource(env, argv[0], elmdb_ro_txn_res, (void**)&ro_txn) &&
-        enif_get_resource(env, argv[1], elmdb_dbi_res, (void**)&elmdb_dbi))) {
+       enif_get_resource(env, argv[0], elmdb_ro_txn_res, (void**)&ro_txn) &&
+       enif_get_resource(env, argv[1], elmdb_dbi_res, (void**)&elmdb_dbi))) {
     return BADARG;
   }
   if(ro_txn->elmdb_env->ref != elmdb_dbi->elmdb_env->ref)
@@ -1861,7 +1861,7 @@ static ERL_NIF_TERM elmdb_ro_txn_cursor_close(ErlNifEnv* env, int argc, const ER
   ElmdbRoCur *ro_cur;
 
   if(!(argc == 1 &&
-        enif_get_resource(env, argv[0], elmdb_ro_cur_res, (void**)&ro_cur))) {
+       enif_get_resource(env, argv[0], elmdb_ro_cur_res, (void**)&ro_cur))) {
     return BADARG;
   }
   enif_mutex_lock(ro_cur->elmdb_ro_txn->elmdb_env->status_lock);
@@ -1888,8 +1888,8 @@ static ERL_NIF_TERM elmdb_ro_txn_cursor_get(ErlNifEnv* env, int argc, const ERL_
   int cursor_op;
 
   if(!(argc == 2 &&
-        enif_get_resource(env, argv[0], elmdb_ro_cur_res, (void**)&ro_cur) &&
-        (enif_is_atom(env, argv[1]) || enif_is_tuple(env, argv[1])))) {
+       enif_get_resource(env, argv[0], elmdb_ro_cur_res, (void**)&ro_cur) &&
+       (enif_is_atom(env, argv[1]) || enif_is_tuple(env, argv[1])))) {
     return BADARG;
   }
   enif_mutex_lock(ro_cur->elmdb_ro_txn->elmdb_env->status_lock);
@@ -1923,7 +1923,7 @@ static ERL_NIF_TERM elmdb_ro_txn_commit(ErlNifEnv* env, int argc, const ERL_NIF_
   int ret;
 
   if(!(argc == 1 &&
-        enif_get_resource(env, argv[0], elmdb_ro_txn_res, (void**)&ro_txn))) {
+       enif_get_resource(env, argv[0], elmdb_ro_txn_res, (void**)&ro_txn))) {
     return BADARG;
   }
   enif_mutex_lock(ro_txn->elmdb_env->status_lock);
@@ -1944,7 +1944,7 @@ static ERL_NIF_TERM elmdb_ro_txn_abort(ErlNifEnv* env, int argc, const ERL_NIF_T
   ElmdbRoTxn *ro_txn;
 
   if(!(argc == 1 &&
-        enif_get_resource(env, argv[0], elmdb_ro_txn_res, (void**)&ro_txn))) {
+       enif_get_resource(env, argv[0], elmdb_ro_txn_res, (void**)&ro_txn))) {
     return BADARG;
   }
   enif_mutex_lock(ro_txn->elmdb_env->status_lock);

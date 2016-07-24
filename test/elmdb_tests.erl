@@ -16,7 +16,7 @@ close_env_by_name_test() ->
     {ok, Env} = elmdb:env_open(Name, []),
     ?assertMatch(ok, elmdb:env_close_by_name(Name)),
     delete_env(Name),
-    % Make sure Env exists until closing it.
+                                                % Make sure Env exists until closing it.
     Env.
 
 close_all_env_test() ->
@@ -29,7 +29,7 @@ close_all_env_test() ->
     ?assertMatch({error, env_closed}, elmdb:db_open(Env2, [])),
     delete_env(Name1),
     delete_env(Name2),
-    % Make sure Envs exists until closing it.
+                                                % Make sure Envs exists until closing it.
     {Env1, Env2}.
 
 open_env_badarg_test() ->
@@ -44,19 +44,20 @@ open_db_badarg_test() ->
     delete_env(Name).
 
 basic_test_() ->
-    Tests = [
-      fun sync_put_get/1,
-      fun async_put_get/1,
-      fun put_new/1,
-      fun delete/1,
-      fun drop/1,
-      fun update/1,
-      fun interfere_update/1,
-      fun ro_txn_get/1,
-      fun ro_txn_cursor/1,
-      fun txn_put_get/1,
-      fun txn_cursor/1
-    ],
+    Tests =
+        [
+         fun sync_put_get/1,
+         fun async_put_get/1,
+         fun put_new/1,
+         fun delete/1,
+         fun drop/1,
+         fun update/1,
+         fun interfere_update/1,
+         fun ro_txn_get/1,
+         fun ro_txn_cursor/1,
+         fun txn_put_get/1,
+         fun txn_cursor/1
+        ],
     {foreach, fun basic_setup/0, fun basic_teardown/1, Tests}.
 
 sync_put_get({_, Dbi, _}) ->

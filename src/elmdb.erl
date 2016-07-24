@@ -406,13 +406,13 @@ recv_async(Ref, Timeout) ->
 
 init() ->
     PrivDir = case code:priv_dir(?MODULE) of
-        {error, _} ->
-            EbinDir = filename:dirname(code:which(?MODULE)),
-            AppPath = filename:dirname(EbinDir),
-            filename:join(AppPath, "priv");
-        Path ->
-            Path
-    end,
+                  {error, _} ->
+                      EbinDir = filename:dirname(code:which(?MODULE)),
+                      AppPath = filename:dirname(EbinDir),
+                      filename:join(AppPath, "priv");
+                  Path ->
+                      Path
+              end,
     case erlang:load_nif(filename:join(PrivDir, ?ELMDB_DRIVER_NAME), 0) of
         ok ->                  ok;
         {error,{reload, _}} -> ok;
