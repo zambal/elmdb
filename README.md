@@ -5,7 +5,13 @@ Elmdb, an Erlang NIF for LMDB
 
 This is an Erlang NIF for OpenLDAP's Lightning Memory-Mapped Database (LMDB) database library. LMDB is an fast, compact key-value data store developed by Symas for the OpenLDAP Project. It uses memory-mapped files, so it has the read performance of a pure in-memory database while still offering the persistence of standard disk-based databases, and is only limited to the size of the virtual address space, (it is not limited to the size of physical RAM). LMDB was originally called MDB, but was renamed to avoid confusion with other software associated with the name MDB. See the [LMDB docs](http://lmdb.tech/doc/) for more information about LMDB itself.
 
-As far as I know, two other Erlang NIF libraries exist for LMDB: [alepharchives/emdb](https://github.com/alepharchives/emdb) and [gburd/lmdb](https://github.com/gburd/lmdb). Reasons for developing another wrapper are that both libraries only offer a small subset of LMDB's functionality and their architecture prevents them from offering more of LMDB's functionality. The reason for this is that all read and writes in LMDB are wrapped in transactions and that all operations in a write transaction need to be performed on the same thread. [alepharchives/emdb](https://github.com/alepharchives/emdb) performs all operations on the calling thread and since Erlang's scheduler might move a process to a different scheduler/thread at any time, it can not be guaranteed that all operations in a transaction will be performed on the same thread. [gburd/lmdb](https://github.com/gburd/lmdb) uses an asynchronous thread pool, probably lifted from an early [eleveldb](https://github.com/basho/eleveldb) version. This means that every operation might be scheduled to a different thread from the pool. Elmdb solves this by creating one background thread per LMDB environment and serializing all write transactions to these threads. This means that Erlang applications can safely perform write transactions concurrently, with the only caveat that as long as a write transaction is active, it will block all other write transactions. However, LMDB itself enforces the same limit by serializing write transactions internally too, so the performance degredation of serializing all transaction operations to a single thread is fairly small.
+As far as I know, two other Erlang NIF libraries exist for LMDB: [alepharchives/emdb](https://github.com/alepharchives/emdb) and [gburd/lmdb](https://github.com/gburd/lmdb). Reasons for developing another wrapper are that both libraries only offer a small subset of LMDB's functionality and their architecture prevents them from offering more of LMDB's functionality. The reason for this is that all read and writes in LMDB are wrapped in transactions and that all operations in a write transaction need to be performed on the same thread.
+
+[alepharchives/emdb](https://github.com/alepharchives/emdb) performs all operations on the calling thread and since Erlang's scheduler might move a process to a different scheduler/thread at any time, it can not be guaranteed that all operations in a transaction will be performed on the same thread.
+
+[gburd/lmdb](https://github.com/gburd/lmdb) uses an asynchronous thread pool, developed by Gregory Burd at Basho Technologies. Having a thread pool means that every operation might be scheduled to a different thread from the pool, which starts to be a problem for LMDB when executing transactions with multiple operations.
+
+Elmdb solves this by creating one background thread per LMDB environment and serializing all write transactions to this thread. This means that Erlang applications can safely perform write transactions concurrently, with the only caveat that as long as a write transaction is active, it will block all other write transactions. However, LMDB itself enforces the same limit by serializing write transactions internally too, so the performance degredation of serializing all transaction operations to a single thread is fairly small and since the calls are asynchronous, the Erlang scheduler isn't blocked.
 
 Quick Overview
 --------------
@@ -125,9 +131,9 @@ $ ./start.sh
 Design and implementation notes
 -------------------------------
 
-When an environment is opened, `elmdb` will create a background thread for handling read/write transactions. All elmdb functions starting with `txn_`, `async_` and `update_` make use of this thread. The functions push their operation to a FIFO queue and the background thread will pop operations from this queue when it can. The background thread sends a message back to the calling process with the results of the operations. This design is inspired by [gburd/lmdb](https://github.com/gburd/lmdb) and [eleveldb](https://github.com/basho/eleveldb), although those projects work with a thread pool instead of a single thread per environment/db.
+When an environment is opened, `elmdb` will create a background thread for handling read/write transactions. All elmdb functions starting with `txn_`, `async_` and `update_` make use of this thread. The functions push their operation to a FIFO queue and the background thread will pop operations from this queue when it can. The background thread sends a message back to the calling process with the results of the operations. This design is inspired by Gregory Burd's `async_nif.h`, used in [gburd/lmdb](https://github.com/gburd/lmdb).
 
-All objects/handles from LMDB are allocated as NIF resources, meaning that they are ref counted and garbage collected by the Erlang run-time. If a resource has a reference to another resource, the ref counter is increased. When for example an environment resource goes out of scope, but a db from that environment is still in scope, the environment won't be closed and garbage collected as long as the db resource is still available. Here's an overview of the lifetime behaviour of resources:
+All objects/handles from LMDB are allocated as NIF resources, meaning that they are reference counted and garbage collected by the Erlang run-time. If a resource has a reference to another resource, the ref counter is increased. When for example an environment resource goes out of scope, but a db from that environment is still in scope, the environment won't be closed and garbage collected as long as the db resource is still available. Here's an overview of the lifetime behaviour of resources:
 
 * Environments - Will be closed and its background thread ended by the resource destructor before collection if it's still open. Will stay alive as long as its resource is in scope or any other resource opened within (Db, transaction, or cursor)
 * Databases - Databases are never closed expicitly, or by its resource destructor, but only implicitly when their environment closes. Contains a reference to its environment.
@@ -155,10 +161,10 @@ Work in progress, but the code should be pretty stable, as it is already about t
 Acknowledgements
 ----------------
 
-This project started as a fork of [gburd/lmdb](https://github.com/gburd/lmdb), but ended up as an almost complete rewrite. However, there are still some parts in `elmdb` that originated from that project, like utility functions, Makefile, rebar configuration, structure of this readme, etc.
+This project started as a fork of [gburd/lmdb](https://github.com/gburd/lmdb), but ended up as an almost complete rewrite. However, there are still parts in `elmdb` that originated from that project, like async nif design, utility functions, Makefile, rebar configuration, structure of this readme, etc.
 
 
 LICENSE
 -------
 
-Elmdb is Copyright (C) 2016 by Vincent Siliakus and released under the [OpenLDAP](http://www.OpenLDAP.org/license.html) License.
+Elmdb is Copyright (C) 2012 by Aleph Archives, (C) 2013 by Basho Technologies, (C) 2016 by Vincent Siliakus and released under the [OpenLDAP](http://www.OpenLDAP.org/license.html) License.
