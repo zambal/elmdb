@@ -31,6 +31,7 @@ Minimal requirement to be determined. Currently only build and tested on:
 
 * Ubuntu 16.04 / GCC 5.3.1 / Erlang OTP-18, Erlang OTP-19
 * FreeBSD 10.2 / GCC 4.8.5, Clang 3.4.1 / Erlang OTP-19
+* Travis CI / Erlang OTP_R16B, OTP-17.5, OTP-18.3 and OTP-19.0
 
 Oldest usable OTP version is probably OTP_R14B, but needs to be tested.
 
