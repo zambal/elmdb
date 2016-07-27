@@ -1,11 +1,14 @@
 {application, elmdb,
  [
   {description, "OpenLDAP's Lightning Memory-Mapped Database BTREE"},
-  {vsn, "0.1.0"},
+  {vsn, "0.2.0"},
   {registered, []},
   {applications, [
                   kernel,
                   stdlib
                  ]},
-  {env, []}
+  {env, []},
+  {maintainers, ["Vincent Siliakus"]},
+  {licenses, ["OpenLDAP Public License 2.8"]},
+  {links, ["https://github.com/zambal/elmdb"]}
  ]}.
