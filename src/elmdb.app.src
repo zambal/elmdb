@@ -1,6 +1,6 @@
 {application, elmdb,
  [
-  {description, "OpenLDAP's Lightning Memory-Mapped Database BTREE"},
+  {description, "Erlang NIF driver for LMDB. A fast, compact and transactional key-value data store."},
   {vsn, "0.2.0"},
   {registered, []},
   {applications, [
@@ -10,5 +10,5 @@
   {env, []},
   {maintainers, ["Vincent Siliakus"]},
   {licenses, ["OpenLDAP Public License 2.8"]},
-  {links, ["https://github.com/zambal/elmdb"]}
+  {links, [{"Github", "https://github.com/zambal/elmdb"}]}
  ]}.
