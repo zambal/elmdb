@@ -278,11 +278,11 @@ ro_txn_get(_Txn, _Dbi, _Key) ->
 ro_txn_commit(_Txn) ->
     ?NOT_LOADED.
 
--spec ro_txn_abort(txn()) -> ok | {error, closed}.
+-spec ro_txn_abort(txn()) -> ok | {error, any()}.
 ro_txn_abort(_Txn) ->
     ?NOT_LOADED.
 
--spec ro_txn_cursor_open(txn(), dbi()) -> {ok, cursor()} | {error, any}.
+-spec ro_txn_cursor_open(txn(), dbi()) -> {ok, cursor()} | {error, any()}.
 ro_txn_cursor_open(_Txn, _Dbi) ->
     ?NOT_LOADED.
 
@@ -354,17 +354,16 @@ txn_commit(Txn, Timeout) ->
 nif_txn_commit(_Ref, _Txn) ->
     ?NOT_LOADED.
 
--spec txn_abort(txn()) -> ok | {error, closed}.
+-spec txn_abort(txn()) -> ok | {error, any()}.
 txn_abort(Txn) ->
     txn_abort(Txn, ?TIMEOUT).
 
--spec txn_abort(txn(), non_neg_integer()) -> ok | {error, closed}.
+-spec txn_abort(txn(), non_neg_integer()) -> ok | {error, any()}.
 txn_abort(Txn, Timeout) ->
     Ref = make_ref(),
     case nif_txn_abort(Ref, Txn) of
-        ok                  -> recv_async(Ref, Timeout);
-        {error, txn_closed} -> ok;
-        Error               -> Error
+        ok    -> recv_async(Ref, Timeout);
+        Error -> Error
     end.
 
 nif_txn_abort(_Ref, _Txn) ->

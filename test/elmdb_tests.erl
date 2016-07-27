@@ -137,8 +137,8 @@ ro_txn_get({Env, Dbi, _}) ->
             ?assertMatch(ok, elmdb:ro_txn_commit(Txn)),
             ?assertMatch({error, txn_closed}, elmdb:ro_txn_get(Txn, Dbi, <<"c">>)),
             ?assertMatch({error, txn_closed}, elmdb:ro_txn_commit(Txn)),
-            ?assertMatch(ok, elmdb:ro_txn_abort(Txn)),
-            ?assertMatch(ok, elmdb:ro_txn_abort(Txn))
+            ?assertMatch({error, txn_closed}, elmdb:ro_txn_abort(Txn)),
+            ?assertMatch({error, txn_closed}, elmdb:ro_txn_abort(Txn))
     end.
 
 ro_txn_cursor({Env, Dbi, _}) ->
@@ -180,7 +180,7 @@ txn_put_get({Env, Dbi, _}) ->
             ?assertMatch({ok, <<"1">>}, elmdb:get(Dbi, <<"a">>)),
             ?assertMatch({error, txn_closed}, elmdb:txn_get(Txn2, Dbi, <<"a">>)),
             ?assertMatch({error, txn_closed}, elmdb:txn_commit(Txn2)),
-            ?assertMatch(ok, elmdb:txn_abort(Txn2))
+            ?assertMatch({error, txn_closed}, elmdb:txn_abort(Txn2))
     end.
 
 txn_cursor({Env, Dbi, _}) ->

@@ -1980,7 +1980,7 @@ static ERL_NIF_TERM elmdb_ro_txn_abort(ErlNifEnv* env, int argc, const ERL_NIF_T
   CHECK_ENV(ro_txn->elmdb_env);
   enif_mutex_unlock(ro_txn->elmdb_env->status_lock);
   if(ro_txn->active == 0)
-    return ATOM_OK;
+    return ERR(ATOM_TXN_CLOSED);
 
   mdb_txn_abort(ro_txn->txn);
   ro_txn->active = 0;
