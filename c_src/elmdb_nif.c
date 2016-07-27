@@ -502,7 +502,7 @@ static void close_env(ElmdbEnv *elmdb_env) {
   enif_mutex_unlock(elmdb_env->status_lock);
 }
 
-int register_env(ElmdbPriv *priv, ElmdbEnv *elmdb_env) {
+static int register_env(ElmdbPriv *priv, ElmdbEnv *elmdb_env) {
   EnvEntry *env_entry = enif_alloc(sizeof(EnvEntry));
   if(env_entry == NULL)
     return 0;
@@ -515,7 +515,7 @@ int register_env(ElmdbPriv *priv, ElmdbEnv *elmdb_env) {
   return 1;
 }
 
-void unregister_env(ElmdbPriv *priv, ElmdbEnv *elmdb_env) {
+static void unregister_env(ElmdbPriv *priv, ElmdbEnv *elmdb_env) {
   EnvEntry *n;
   enif_mutex_lock(priv->env_lock);
   FOREACH(n, priv->env_list) {
@@ -609,7 +609,7 @@ static void* elmdb_env_thread(void *p) {
   return NULL;
 }
 
-void close_all(ElmdbPriv *priv) {
+static void close_all(ElmdbPriv *priv) {
   EnvEntry *n;
 
   enif_mutex_lock(priv->env_lock);
@@ -829,7 +829,7 @@ static MDB_txn* elmdb_db_open_handler(MDB_txn *txn, OpEntry *op) {
   ElmdbDbi *elmdb_dbi;
   ERL_NIF_TERM res;
   char *name = NULL;
-  int len = strnlen(args->name, MAXPATHLEN);
+  int len = strlen(args->name);
   if(len > 0) {
     if((name = enif_alloc(len + 1)) == NULL)
       SEND_ERRNO(op, ENOMEM);
@@ -1987,7 +1987,7 @@ static ERL_NIF_TERM elmdb_ro_txn_abort(ErlNifEnv* env, int argc, const ERL_NIF_T
   return ATOM_OK;
 }
 
-void elmdb_env_dtor(ErlNifEnv *env, void *resource) {
+static void elmdb_env_dtor(ErlNifEnv *env, void *resource) {
   __UNUSED(env);
   ElmdbEnv *elmdb_env = (ElmdbEnv*)resource;
   enif_mutex_lock(elmdb_env->status_lock);
@@ -1999,7 +1999,7 @@ void elmdb_env_dtor(ErlNifEnv *env, void *resource) {
   } else enif_mutex_unlock(elmdb_env->status_lock);
 }
 
-void elmdb_dbi_dtor(ErlNifEnv *env, void *resource) {
+static void elmdb_dbi_dtor(ErlNifEnv *env, void *resource) {
   __UNUSED(env);
   ElmdbDbi *elmdb_dbi = (ElmdbDbi*)resource;
   if(elmdb_dbi->name != NULL)
@@ -2007,7 +2007,7 @@ void elmdb_dbi_dtor(ErlNifEnv *env, void *resource) {
   enif_release_resource(elmdb_dbi->elmdb_env);
 }
 
-void elmdb_txn_dtor(ErlNifEnv *env, void *resource) {
+static void elmdb_txn_dtor(ErlNifEnv *env, void *resource) {
   __UNUSED(env);
   ElmdbTxn *elmdb_txn = (ElmdbTxn*)resource;
   enif_mutex_lock(elmdb_txn->elmdb_env->status_lock);
@@ -2017,7 +2017,7 @@ void elmdb_txn_dtor(ErlNifEnv *env, void *resource) {
   enif_release_resource(elmdb_txn->elmdb_env);
 }
 
-void elmdb_ro_txn_dtor(ErlNifEnv *env, void *resource) {
+static void elmdb_ro_txn_dtor(ErlNifEnv *env, void *resource) {
   __UNUSED(env);
   ElmdbRoTxn *elmdb_ro_txn = (ElmdbRoTxn*)resource;
   enif_mutex_lock(elmdb_ro_txn->elmdb_env->status_lock);
@@ -2029,14 +2029,14 @@ void elmdb_ro_txn_dtor(ErlNifEnv *env, void *resource) {
   enif_release_resource(elmdb_ro_txn->elmdb_env);
 }
 
-void elmdb_cur_dtor(ErlNifEnv *env, void *resource) {
+static void elmdb_cur_dtor(ErlNifEnv *env, void *resource) {
   __UNUSED(env);
   ElmdbCur *elmdb_cur = (ElmdbCur*)resource;
   elmdb_cur->active = 0;
   enif_release_resource(elmdb_cur->elmdb_txn);
 }
 
-void elmdb_ro_cur_dtor(ErlNifEnv *env, void *resource) {
+static void elmdb_ro_cur_dtor(ErlNifEnv *env, void *resource) {
   __UNUSED(env);
   ElmdbRoCur *elmdb_ro_cur = (ElmdbRoCur*)resource;
   enif_mutex_lock(elmdb_ro_cur->elmdb_ro_txn->elmdb_env->status_lock);
