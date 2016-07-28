@@ -7,7 +7,7 @@ close_env_test() ->
     io:format("closing env~n"),
     ?assertMatch(ok, elmdb:env_close(Env)),
     io:format("try opening db~n"),
-    ?assertMatch({error, env_closed}, elmdb:db_open(Env, [])),
+    ?assertMatch({error, {env_closed, _}}, elmdb:db_open(Env, [])),
     io:format("delete env~n"),
     delete_env(Name).
 
@@ -25,8 +25,8 @@ close_all_env_test() ->
     {ok, Env1} = elmdb:env_open(Name1, []),
     {ok, Env2} = elmdb:env_open(Name2, []),
     ?assertMatch(ok, elmdb:env_close_all()),
-    ?assertMatch({error, env_closed}, elmdb:db_open(Env1, [])),
-    ?assertMatch({error, env_closed}, elmdb:db_open(Env2, [])),
+    ?assertMatch({error, {env_closed, _}}, elmdb:db_open(Env1, [])),
+    ?assertMatch({error, {env_closed, _}}, elmdb:db_open(Env2, [])),
     delete_env(Name1),
     delete_env(Name2),
                                                 % Make sure Envs exists until closing it.
@@ -121,7 +121,7 @@ interfere_update({_, Dbi, _}) ->
     fun() ->
             ?assertMatch(ok, elmdb:put(Dbi, <<"a">>, <<"1">>)),
             {ok, <<"1">>, Txn} = elmdb:update_get(Dbi, <<"a">>),
-            ?assertMatch({error, timeout}, elmdb:async_put(Dbi, <<"a">>, <<"3">>, 1000)),
+            ?assertMatch({error, {timeout, _}}, elmdb:async_put(Dbi, <<"a">>, <<"3">>, 1000)),
             ?assertMatch(ok, elmdb:update_put(Txn, Dbi, <<"a">>, <<"2">>)),
             ?assertMatch({ok, <<"3">>}, elmdb:async_get(Dbi, <<"a">>))
     end.
@@ -135,10 +135,10 @@ ro_txn_get({Env, Dbi, _}) ->
             ?assertMatch({ok, <<"1">>}, elmdb:ro_txn_get(Txn, Dbi, <<"a">>)),
             ?assertMatch({ok, <<"2">>}, elmdb:ro_txn_get(Txn, Dbi, <<"b">>)),
             ?assertMatch(ok, elmdb:ro_txn_commit(Txn)),
-            ?assertMatch({error, txn_closed}, elmdb:ro_txn_get(Txn, Dbi, <<"c">>)),
-            ?assertMatch({error, txn_closed}, elmdb:ro_txn_commit(Txn)),
-            ?assertMatch({error, txn_closed}, elmdb:ro_txn_abort(Txn)),
-            ?assertMatch({error, txn_closed}, elmdb:ro_txn_abort(Txn))
+            ?assertMatch({error, {txn_closed, _}}, elmdb:ro_txn_get(Txn, Dbi, <<"c">>)),
+            ?assertMatch({error, {txn_closed, _}}, elmdb:ro_txn_commit(Txn)),
+            ?assertMatch({error, {txn_closed, _}}, elmdb:ro_txn_abort(Txn)),
+            ?assertMatch({error, {txn_closed, _}}, elmdb:ro_txn_abort(Txn))
     end.
 
 ro_txn_cursor({Env, Dbi, _}) ->
@@ -173,14 +173,14 @@ txn_put_get({Env, Dbi, _}) ->
             ?assertMatch(ok, elmdb:txn_abort(Txn1)),
             ?assertMatch(not_found, elmdb:get(Dbi, <<"a">>)),
             {ok, Txn2} = elmdb:txn_begin(Env),
-            ?assertMatch({error, txn_closed}, elmdb:txn_put(Txn1, Dbi, <<"a">>, <<"1">>)),
+            ?assertMatch({error, {txn_closed, _}}, elmdb:txn_put(Txn1, Dbi, <<"a">>, <<"1">>)),
             ?assertMatch(ok, elmdb:txn_put(Txn2, Dbi, <<"a">>, <<"1">>)),
             ?assertMatch({ok, <<"1">>}, elmdb:txn_get(Txn2, Dbi, <<"a">>)),
             ?assertMatch(ok, elmdb:txn_commit(Txn2)),
             ?assertMatch({ok, <<"1">>}, elmdb:get(Dbi, <<"a">>)),
-            ?assertMatch({error, txn_closed}, elmdb:txn_get(Txn2, Dbi, <<"a">>)),
-            ?assertMatch({error, txn_closed}, elmdb:txn_commit(Txn2)),
-            ?assertMatch({error, txn_closed}, elmdb:txn_abort(Txn2))
+            ?assertMatch({error, {txn_closed, _}}, elmdb:txn_get(Txn2, Dbi, <<"a">>)),
+            ?assertMatch({error, {txn_closed, _}}, elmdb:txn_commit(Txn2)),
+            ?assertMatch({error, {txn_closed, _}}, elmdb:txn_abort(Txn2))
     end.
 
 txn_cursor({Env, Dbi, _}) ->
