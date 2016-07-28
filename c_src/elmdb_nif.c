@@ -186,8 +186,8 @@ static ERL_NIF_TERM ATOM_OK;
 static ERL_NIF_TERM ATOM_ENV_CLOSED;
 static ERL_NIF_TERM ATOM_TXN_CLOSED;
 static ERL_NIF_TERM ATOM_CUR_CLOSED;
+static ERL_NIF_TERM ATOM_ENV_NOT_FOUND;
 static ERL_NIF_TERM ATOM_BADARG;
-static ERL_NIF_TERM ATOM_INVALID_OP;
 static ERL_NIF_TERM ATOM_NOT_FOUND;
 static ERL_NIF_TERM ATOM_EXISTS;
 static ERL_NIF_TERM ATOM_KEYEXIST;
@@ -262,18 +262,18 @@ static ERL_NIF_TERM ATOM_SET_RANGE;
 
 #define SEND(var, msg) enif_send(NULL, &var->caller, var->msg_env, enif_make_tuple3(var->msg_env, ATOM_ELMDB, var->ref, msg))
 #define SEND_OK(var, msg) SEND(var, enif_make_tuple2(var->msg_env, ATOM_OK, msg))
-#define SEND_ERR(var, msg) SEND(var, enif_make_tuple2(var->msg_env, ATOM_ERROR, msg))
-#define SEND_ERRNO(var, err) SEND(var, __strerror_term(var->msg_env, err))
+#define SEND_ERR(var, msg) SEND(var, __strerror_atom(var->msg_env, msg))
+#define SEND_ERRNO(var, err) SEND(var, __strerror_int(var->msg_env, err))
 
 #define CHECK(expr, label)                      \
   if(MDB_SUCCESS != (ret = (expr))) {           \
-    err = __strerror_term(env, ret);            \
+    err = __strerror_int(env, ret);             \
     goto label;                                 \
   }
 
 #define OK(msg) enif_make_tuple2(env, ATOM_OK, msg)
-#define ERR(msg) enif_make_tuple2(env, ATOM_ERROR, msg)
-#define ERRNO(e) __strerror_term(env, (e))
+#define ERR(msg) __strerror_atom(env, msg)
+#define ERRNO(e) __strerror_int(env, (e))
 
 #define FAIL_ERR(msg, label)                    \
   do {                                          \
@@ -307,7 +307,7 @@ static ERL_NIF_TERM ATOM_SET_RANGE;
  * err    number of last error
  */
 static ERL_NIF_TERM
-__strerror_term(ErlNifEnv* env, int err)
+__strerror_int(ErlNifEnv* env, int err)
 {
   ERL_NIF_TERM term = 0;
 
@@ -373,9 +373,29 @@ __strerror_term(ErlNifEnv* env, int err)
      message provided by strerror() for differ across platforms and/or may be
      localized to any given language (i18n).  Use the errno atom rather than
      the message when matching in Erlang.  You've been warned. */
-  return enif_make_tuple(env, 2, ATOM_ERROR,
-                         enif_make_tuple(env, 2, term,
-                                         enif_make_string(env, mdb_strerror(err), ERL_NIF_LATIN1)));
+  return enif_make_tuple2(env, ATOM_ERROR,
+                          enif_make_tuple2(env, term,
+                                           enif_make_string(env, mdb_strerror(err), ERL_NIF_LATIN1)));
+}
+
+static ERL_NIF_TERM __strerror_atom(ErlNifEnv* env, ERL_NIF_TERM err_atom) {
+  const char *err_str;
+
+  if(err_atom == ATOM_ENV_CLOSED) {
+    err_str = "The environment is closed";
+  } else if(err_atom == ATOM_TXN_CLOSED) {
+    err_str = "The transaction is either commited or aborted";
+  } else if(err_atom == ATOM_CUR_CLOSED) {
+    err_str = "The cursor is closed";
+  } else if(err_atom == ATOM_ENV_NOT_FOUND) {
+    err_str = "The environment is already closed or does not exist";
+  } else {
+    err_str = "Unknown error";
+  }
+
+  return enif_make_tuple2(env, ATOM_ERROR,
+                          enif_make_tuple2(env, err_atom,
+                                           enif_make_string(env, err_str, ERL_NIF_LATIN1)));
 }
 
 static int to_mdb_cursor_op(ErlNifEnv *env, ERL_NIF_TERM op, MDB_val *key) {
@@ -545,7 +565,7 @@ static void* elmdb_env_thread(void *p) {
   }
 
   if(register_env(priv, elmdb_env) == 0) {
-    SEND_ERR(args, ATOM_PANIC);
+    SEND_ERRNO(args, ENOMEM);
     enif_free_env(args->msg_env);
     close_env(elmdb_env);
     goto shutdown;
@@ -800,7 +820,7 @@ static ERL_NIF_TERM elmdb_env_close_by_name(ErlNifEnv* env, int argc, const ERL_
     return BADARG;
 
   if((elmdb_env = get_env(priv, path)) == NULL)
-    return ERR(ATOM_NOT_FOUND);
+    return ERR(ATOM_ENV_NOT_FOUND);
 
   enif_mutex_lock(elmdb_env->status_lock);
   elmdb_env->shutdown = 1;
@@ -2090,8 +2110,8 @@ static int elmdb_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
   ATOM_ENV_CLOSED = enif_make_atom(env, "env_closed");
   ATOM_TXN_CLOSED = enif_make_atom(env, "txn_closed");
   ATOM_CUR_CLOSED = enif_make_atom(env, "cur_closed");
+  ATOM_ENV_NOT_FOUND = enif_make_atom(env, "env_not_found");
   ATOM_BADARG = enif_make_atom(env, "badarg");
-  ATOM_INVALID_OP = enif_make_atom(env, "invalid_op");
   ATOM_PANIC = enif_make_atom(env, "panic");
   ATOM_OK = enif_make_atom(env, "ok");
   ATOM_NOT_FOUND = enif_make_atom(env, "not_found");

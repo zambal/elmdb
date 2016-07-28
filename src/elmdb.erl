@@ -125,6 +125,8 @@
                      prev | prev_dup | prev_nodup |
                      {set, key()} | {set_range, key()}.
 
+-type elmdb_error() :: {error, {atom(), string()}}.
+
 %%====================================================================
 %% PUBLIC API
 %%====================================================================
@@ -133,11 +135,11 @@
 %% @doc Create a new, or open an existing MDB environment
 %% @end
 %%--------------------------------------------------------------------
--spec env_open(string(), env_open_opts()) -> {ok, env()} | {error, any}.
+-spec env_open(string(), env_open_opts()) -> {ok, env()} | elmdb_error().
 env_open(DirName, Opts) ->
     env_open(DirName, Opts, ?TIMEOUT).
 
--spec env_open(string(), env_open_opts(), non_neg_integer()) -> {ok, env()} | {error, any()}.
+-spec env_open(string(), env_open_opts(), non_neg_integer()) -> {ok, env()} | elmdb_error().
 env_open(DirName, Opts, Timeout)
   when is_list(Opts) ->
     %% ensure directory exists
@@ -156,7 +158,7 @@ nif_env_open(_Ref, _DirName, _Opts) ->
 env_close(_Env) ->
     ?NOT_LOADED.
 
--spec env_close_by_name(string()) -> ok | {error, not_found}.
+-spec env_close_by_name(string()) -> ok | elmdb_error().
 env_close_by_name(DirName) ->
     nif_env_close_by_name(filename:absname(DirName)).
 
@@ -167,15 +169,15 @@ nif_env_close_by_name(_DirName) ->
 env_close_all() ->
     ?NOT_LOADED.
 
--spec db_open(env(), db_open_opts()) -> {ok, dbi()} | {error, any()}.
+-spec db_open(env(), db_open_opts()) -> {ok, dbi()} | elmdb_error().
 db_open(Env, Opts) ->
     db_open(Env, <<"">>, Opts, ?TIMEOUT).
 
--spec db_open(env(), key(), db_open_opts()) -> {ok, dbi()} | {error, any()}.
+-spec db_open(env(), key(), db_open_opts()) -> {ok, dbi()} | elmdb_error().
 db_open(Env, Name, Opts) ->
     db_open(Env, Name, Opts, ?TIMEOUT).
 
--spec db_open(env(), key(), db_open_opts(), non_neg_integer()) -> {ok, dbi()} | {error, any()}.
+-spec db_open(env(), key(), db_open_opts(), non_neg_integer()) -> {ok, dbi()} | elmdb_error().
 db_open(Env, Name, Opts, Timeout) ->
     Ref = make_ref(),
     case nif_db_open(Ref, Env, Name, Opts) of
@@ -186,31 +188,31 @@ db_open(Env, Name, Opts, Timeout) ->
 nif_db_open(_Ref, _Env, _Name, _Opts) ->
     ?NOT_LOADED.
 
--spec put(dbi(), key(), val()) -> ok | {error, any()}.
+-spec put(dbi(), key(), val()) -> ok | elmdb_error().
 put(_Dbi, _Key, _Val) ->
     ?NOT_LOADED.
 
--spec put_new(dbi(), key(), val()) -> ok | exists | {error, any()}.
+-spec put_new(dbi(), key(), val()) -> ok | exists | elmdb_error().
 put_new(_Dbi, _Key, _Val) ->
     ?NOT_LOADED.
 
--spec get(dbi(), key()) -> {ok, val()} | {error, any()}.
+-spec get(dbi(), key()) -> {ok, val()} | elmdb_error().
 get(_Dbi, _Key) ->
     ?NOT_LOADED.
 
--spec delete(dbi(), key()) -> ok | {error, any()}.
+-spec delete(dbi(), key()) -> ok | elmdb_error().
 delete(_Dbi, _Key) ->
     ?NOT_LOADED.
 
--spec drop(dbi()) -> ok | {error, any()}.
+-spec drop(dbi()) -> ok | elmdb_error().
 drop(_Dbi) ->
     ?NOT_LOADED.
 
--spec async_put(dbi(), key(), val()) -> ok | {error, any()}.
+-spec async_put(dbi(), key(), val()) -> ok | elmdb_error().
 async_put(Dbi, Key, Val) ->
     async_put(Dbi, Key, Val, ?TIMEOUT).
 
--spec async_put(dbi(), key(), val(), non_neg_integer()) -> ok | {error, any()}.
+-spec async_put(dbi(), key(), val(), non_neg_integer()) -> ok | elmdb_error().
 async_put(Dbi, Key, Val, Timeout) ->
     Ref = make_ref(),
     case nif_async_put(Ref, Dbi, Key, Val) of
@@ -221,11 +223,11 @@ async_put(Dbi, Key, Val, Timeout) ->
 nif_async_put(_Ref, _Dbi, _Key, _Val) ->
     ?NOT_LOADED.
 
--spec async_get(dbi(), key()) -> {ok, val()} | not_found | {error, any()}.
+-spec async_get(dbi(), key()) -> {ok, val()} | not_found | elmdb_error().
 async_get(Dbi, Key) ->
     async_get(Dbi, Key, ?TIMEOUT).
 
--spec async_get(dbi(), key(), non_neg_integer()) -> {ok, val()} | not_found | {error, any()}.
+-spec async_get(dbi(), key(), non_neg_integer()) -> {ok, val()} | not_found | elmdb_error().
 async_get(Dbi, Key, Timeout) ->
     Ref = make_ref(),
     case nif_async_get(Ref, Dbi, Key) of
@@ -236,11 +238,11 @@ async_get(Dbi, Key, Timeout) ->
 nif_async_get(_Ref, _Dbi, _Key) ->
     ?NOT_LOADED.
 
--spec update_put(txn(), dbi(), key(), val()) -> ok | {error, any()}.
+-spec update_put(txn(), dbi(), key(), val()) -> ok | elmdb_error().
 update_put(Txn, Dbi, Key, Val) ->
     update_put(Txn, Dbi, Key, Val, ?TIMEOUT).
 
--spec update_put(txn(), dbi(), key(), val(), non_neg_integer()) -> ok | {error, any()}.
+-spec update_put(txn(), dbi(), key(), val(), non_neg_integer()) -> ok | elmdb_error().
 update_put(Txn, Dbi, Key, Val, Timeout) ->
     Ref = make_ref(),
     case nif_update_put(Ref, Txn, Dbi, Key, Val) of
@@ -251,11 +253,11 @@ update_put(Txn, Dbi, Key, Val, Timeout) ->
 nif_update_put(_Ref, _Txn, _Dbi, _Key, _Val) ->
     ?NOT_LOADED.
 
--spec update_get(dbi(), key()) -> {ok, val(), txn()} | {error, any()}.
+-spec update_get(dbi(), key()) -> {ok, val(), txn()} | elmdb_error().
 update_get(Dbi, Key) ->
     update_get(Dbi, Key, ?TIMEOUT).
 
--spec update_get(dbi(), key(), non_neg_integer()) -> {ok, val(), txn()} | {error, any()}.
+-spec update_get(dbi(), key(), non_neg_integer()) -> {ok, val(), txn()} | elmdb_error().
 update_get(Dbi, Key, Timeout) ->
     Ref = make_ref(),
     case nif_update_get(Ref, Dbi, Key) of
@@ -266,23 +268,23 @@ update_get(Dbi, Key, Timeout) ->
 nif_update_get(_Ref, _Dbi, _Key) ->
     ?NOT_LOADED.
 
--spec ro_txn_begin(env()) -> {ok, txn()} | {error, any()}.
+-spec ro_txn_begin(env()) -> {ok, txn()} | elmdb_error().
 ro_txn_begin(_Env) ->
     ?NOT_LOADED.
 
--spec ro_txn_get(txn(), dbi(), key()) -> {ok, val()} | {error, any()}.
+-spec ro_txn_get(txn(), dbi(), key()) -> {ok, val()} | elmdb_error().
 ro_txn_get(_Txn, _Dbi, _Key) ->
     ?NOT_LOADED.
 
--spec ro_txn_commit(txn()) -> ok | {error, any()}.
+-spec ro_txn_commit(txn()) -> ok | elmdb_error().
 ro_txn_commit(_Txn) ->
     ?NOT_LOADED.
 
--spec ro_txn_abort(txn()) -> ok | {error, any()}.
+-spec ro_txn_abort(txn()) -> ok | elmdb_error().
 ro_txn_abort(_Txn) ->
     ?NOT_LOADED.
 
--spec ro_txn_cursor_open(txn(), dbi()) -> {ok, cursor()} | {error, any()}.
+-spec ro_txn_cursor_open(txn(), dbi()) -> {ok, cursor()} | elmdb_error().
 ro_txn_cursor_open(_Txn, _Dbi) ->
     ?NOT_LOADED.
 
@@ -290,15 +292,15 @@ ro_txn_cursor_open(_Txn, _Dbi) ->
 ro_txn_cursor_close(_Cur) ->
     ?NOT_LOADED.
 
--spec ro_txn_cursor_get(cursor(), cursor_op()) -> {ok, key(), val()} | not_found | {error, any()}.
+-spec ro_txn_cursor_get(cursor(), cursor_op()) -> {ok, key(), val()} | not_found | elmdb_error().
 ro_txn_cursor_get(_Cur, _Op) ->
     ?NOT_LOADED.
 
--spec txn_begin(env()) -> {ok, txn()} | {error, any()}.
+-spec txn_begin(env()) -> {ok, txn()} | elmdb_error().
 txn_begin(Env) ->
     txn_begin(Env, ?TIMEOUT).
 
--spec txn_begin(env(), non_neg_integer()) -> {ok, txn()} | {error, any()}.
+-spec txn_begin(env(), non_neg_integer()) -> {ok, txn()} | elmdb_error().
 txn_begin(Env, Timeout) ->
     Ref = make_ref(),
     case nif_txn_begin(Ref, Env) of
@@ -309,11 +311,11 @@ txn_begin(Env, Timeout) ->
 nif_txn_begin(_Ref, _Env) ->
     ?NOT_LOADED.
 
--spec txn_put(txn(), dbi(), key(), val()) -> ok | {error, any()}.
+-spec txn_put(txn(), dbi(), key(), val()) -> ok | elmdb_error().
 txn_put(Txn, Dbi, Key, Val) ->
     txn_put(Txn, Dbi, Key, Val, ?TIMEOUT).
 
--spec txn_put(txn(), dbi(), key(), val(), non_neg_integer()) -> ok | {error, any()}.
+-spec txn_put(txn(), dbi(), key(), val(), non_neg_integer()) -> ok | elmdb_error().
 txn_put(Txn, Dbi, Key, Val, Timeout) ->
     Ref = make_ref(),
     case nif_txn_put(Ref, Txn, Dbi, Key, Val) of
@@ -324,11 +326,11 @@ txn_put(Txn, Dbi, Key, Val, Timeout) ->
 nif_txn_put(_Ref, _Txn, _Dbi, _Key, _Val) ->
     ?NOT_LOADED.
 
--spec txn_get(txn(), dbi(), key()) -> {ok, val()} | not_found | {error, any()}.
+-spec txn_get(txn(), dbi(), key()) -> {ok, val()} | not_found | elmdb_error().
 txn_get(Txn, Dbi, Key) ->
     txn_get(Txn, Dbi, Key, ?TIMEOUT).
 
--spec txn_get(txn(), dbi(), key(), non_neg_integer()) -> {ok, val()} | not_found | {error, any()}.
+-spec txn_get(txn(), dbi(), key(), non_neg_integer()) -> {ok, val()} | not_found | elmdb_error().
 txn_get(Txn, Dbi, Key, Timeout) ->
     Ref = make_ref(),
     case nif_txn_get(Ref, Txn, Dbi, Key) of
@@ -339,11 +341,11 @@ txn_get(Txn, Dbi, Key, Timeout) ->
 nif_txn_get(_Ref, _Txn, _Dbi, _Key) ->
     ?NOT_LOADED.
 
--spec txn_commit(txn()) -> ok | {error, any()}.
+-spec txn_commit(txn()) -> ok | elmdb_error().
 txn_commit(Txn) ->
     txn_commit(Txn, ?TIMEOUT).
 
--spec txn_commit(txn(), non_neg_integer()) -> ok | {error, any()}.
+-spec txn_commit(txn(), non_neg_integer()) -> ok | elmdb_error().
 txn_commit(Txn, Timeout) ->
     Ref = make_ref(),
     case nif_txn_commit(Ref, Txn) of
@@ -354,11 +356,11 @@ txn_commit(Txn, Timeout) ->
 nif_txn_commit(_Ref, _Txn) ->
     ?NOT_LOADED.
 
--spec txn_abort(txn()) -> ok | {error, any()}.
+-spec txn_abort(txn()) -> ok | elmdb_error().
 txn_abort(Txn) ->
     txn_abort(Txn, ?TIMEOUT).
 
--spec txn_abort(txn(), non_neg_integer()) -> ok | {error, any()}.
+-spec txn_abort(txn(), non_neg_integer()) -> ok | elmdb_error().
 txn_abort(Txn, Timeout) ->
     Ref = make_ref(),
     case nif_txn_abort(Ref, Txn) of
@@ -369,11 +371,11 @@ txn_abort(Txn, Timeout) ->
 nif_txn_abort(_Ref, _Txn) ->
     ?NOT_LOADED.
 
--spec txn_cursor_open(txn(), dbi()) -> {ok, cursor()} | {error, any()}.
+-spec txn_cursor_open(txn(), dbi()) -> {ok, cursor()} | elmdb_error().
 txn_cursor_open(Txn, Dbi) ->
     txn_cursor_open(Txn, Dbi, ?TIMEOUT).
 
--spec txn_cursor_open(txn(), dbi(), non_neg_integer()) -> {ok, cursor()} | {error, any()}.
+-spec txn_cursor_open(txn(), dbi(), non_neg_integer()) -> {ok, cursor()} | elmdb_error().
 txn_cursor_open(Txn, Dbi, Timeout) ->
     Ref = make_ref(),
     case nif_txn_cursor_open(Ref, Txn, Dbi) of
@@ -384,11 +386,11 @@ txn_cursor_open(Txn, Dbi, Timeout) ->
 nif_txn_cursor_open(_Ref, _Txn, _Dbi) ->
     ?NOT_LOADED.
 
--spec txn_cursor_get(cursor(), cursor_op()) -> {ok, key(), val()} | not_found | {error, any()}.
+-spec txn_cursor_get(cursor(), cursor_op()) -> {ok, key(), val()} | not_found | elmdb_error().
 txn_cursor_get(Cur, Op) ->
     txn_cursor_get(Cur, Op, ?TIMEOUT).
 
--spec txn_cursor_get(cursor(), cursor_op(), non_neg_integer()) -> {ok, key(), val()} | not_found | {error, any()}.
+-spec txn_cursor_get(cursor(), cursor_op(), non_neg_integer()) -> {ok, key(), val()} | not_found | elmdb_error().
 txn_cursor_get(Cur, Op, Timeout) ->
     Ref = make_ref(),
     case nif_txn_cursor_get(Ref, Cur, Op) of
@@ -399,11 +401,11 @@ txn_cursor_get(Cur, Op, Timeout) ->
 nif_txn_cursor_get(_Ref, _Cur, _Op) ->
     ?NOT_LOADED.
 
--spec txn_cursor_put(cursor(), key(), val()) -> ok | {error, any}.
+-spec txn_cursor_put(cursor(), key(), val()) -> ok | elmdb_error().
 txn_cursor_put(Cur, Key, Val) ->
     txn_cursor_put(Cur, Key, Val, ?TIMEOUT).
 
--spec txn_cursor_put(cursor(), key(), val(), non_neg_integer()) -> ok | {error, any}.
+-spec txn_cursor_put(cursor(), key(), val(), non_neg_integer()) -> ok | elmdb_error().
 txn_cursor_put(Cur, Key, Val, Timeout) ->
     Ref = make_ref(),
     case nif_txn_cursor_put(Ref, Cur, Key, Val) of
@@ -429,7 +431,7 @@ recv_async(Ref, Timeout) ->
             recv_async(Ref, Timeout)
     after
         Timeout ->
-            {error, timeout}
+            {error, {timeout, "A timeout occured while waiting for response from the environment's async thread"}}
     end.
 
 init() ->
