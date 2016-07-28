@@ -162,7 +162,9 @@ ro_txn_cursor({Env, Dbi, _}) ->
             ?assertMatch(not_found, elmdb:ro_txn_cursor_get(Cur, next)),
             ?assertMatch({ok, <<"b">>, <<"2">>}, elmdb:ro_txn_cursor_get(Cur, {set, <<"b">>})),
             ?assertMatch(not_found, elmdb:ro_txn_cursor_get(Cur, {set, <<"c">>})),
-            ?assertMatch({ok, <<"d">>, <<"4">>}, elmdb:ro_txn_cursor_get(Cur, {set_range, <<"c">>}))
+            ?assertMatch({ok, <<"d">>, <<"4">>}, elmdb:ro_txn_cursor_get(Cur, {set_range, <<"c">>})),
+            ?assertMatch(ok, elmdb:ro_txn_cursor_close(Cur)),
+            ?assertMatch(ok, elmdb:ro_txn_abort(Txn))
     end.
 
 txn_put_get({Env, Dbi, _}) ->
@@ -204,7 +206,8 @@ txn_cursor({Env, Dbi, _}) ->
             ?assertMatch(not_found, elmdb:txn_cursor_get(Cur, next)),
             ?assertMatch({ok, <<"b">>, <<"2">>}, elmdb:txn_cursor_get(Cur, {set, <<"b">>})),
             ?assertMatch(not_found, elmdb:txn_cursor_get(Cur, {set, <<"c">>})),
-            ?assertMatch({ok, <<"d">>, <<"4">>}, elmdb:txn_cursor_get(Cur, {set_range, <<"c">>}))
+            ?assertMatch({ok, <<"d">>, <<"4">>}, elmdb:txn_cursor_get(Cur, {set_range, <<"c">>})),
+            ?assertMatch(ok, elmdb:txn_commit(Txn))
     end.
 
 basic_setup() ->
