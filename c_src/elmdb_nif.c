@@ -494,13 +494,9 @@ static void close_env(ElmdbEnv *elmdb_env) {
   enif_mutex_lock(elmdb_env->status_lock);
   if(elmdb_env->shutdown < 2) {
     elmdb_env->shutdown = 2;
-    if(elmdb_env->op_lock != NULL)
-      enif_mutex_destroy(elmdb_env->op_lock);
-    if(elmdb_env->txn_lock != NULL)
-      enif_mutex_destroy(elmdb_env->txn_lock);
-    if(elmdb_env->txn_cond != NULL)
-      enif_cond_destroy(elmdb_env->txn_cond);
+    enif_mutex_unlock(elmdb_env->status_lock);
 
+    enif_mutex_lock(elmdb_env->op_lock);
     OpEntry *op;
     while (!STAILQ_EMPTY(&elmdb_env->op_queue)) {
       op = STAILQ_FIRST(&elmdb_env->op_queue);
@@ -508,7 +504,9 @@ static void close_env(ElmdbEnv *elmdb_env) {
       SEND_ERR(op, ATOM_ENV_CLOSED);
       FREE_OP(op);
     }
+    enif_mutex_unlock(elmdb_env->op_lock);
 
+    enif_mutex_lock(elmdb_env->txn_lock);
     OpEntry *txn;
     while (!STAILQ_EMPTY(&elmdb_env->txn_queue)) {
       txn = STAILQ_FIRST(&elmdb_env->txn_queue);
@@ -516,10 +514,11 @@ static void close_env(ElmdbEnv *elmdb_env) {
       SEND_ERR(txn, ATOM_ENV_CLOSED);
       FREE_OP(txn);
     }
+    enif_mutex_unlock(elmdb_env->txn_lock);
+
     mdb_env_close(elmdb_env->env);
     elmdb_env->env = NULL;
-  }
-  enif_mutex_unlock(elmdb_env->status_lock);
+  } else enif_mutex_unlock(elmdb_env->status_lock);
 }
 
 static int register_env(ElmdbPriv *priv, ElmdbEnv *elmdb_env) {
@@ -2016,6 +2015,10 @@ static void elmdb_env_dtor(ErlNifEnv *env, void *resource) {
     enif_mutex_unlock(elmdb_env->status_lock);
     enif_cond_signal(elmdb_env->txn_cond);
     enif_thread_join(elmdb_env->tid, NULL);
+    enif_mutex_destroy(elmdb_env->status_lock);
+    enif_mutex_destroy(elmdb_env->op_lock);
+    enif_mutex_destroy(elmdb_env->txn_lock);
+    enif_cond_destroy(elmdb_env->txn_cond);
   } else enif_mutex_unlock(elmdb_env->status_lock);
 }
 
