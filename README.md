@@ -39,7 +39,11 @@ Should be able to run on Windows, MacOS and older/different Linux distributions 
 Build
 -----
 
+```
 $ rebar3 compile
+```
+
+If you want to use `elmdb` as a dependency, there is also a package available at [hex.pm](https://hex.pm/packages/elmdb)
 
 Usage
 -----
