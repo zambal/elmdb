@@ -615,12 +615,12 @@ static void* elmdb_env_thread(void *p) {
         enif_mutex_lock(elmdb_env->status_lock);
       }
       elmdb_env->active_txn_ref = 0;
-      enif_mutex_unlock(elmdb_env->status_lock);
       if(txn != NULL) {
         mdb_txn_abort(txn);
         txn = NULL;
       }
       FREE(q_txn);
+      enif_mutex_unlock(elmdb_env->status_lock);
       enif_mutex_lock(elmdb_env->txn_lock);
     }
     enif_cond_wait(elmdb_env->txn_cond, elmdb_env->txn_lock);
