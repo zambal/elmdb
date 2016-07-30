@@ -883,10 +883,8 @@ static MDB_txn* elmdb_db_open_handler(MDB_txn *txn, OpEntry *op) {
   elmdb_dbi->dbi = dbi;
   elmdb_dbi->name = name;
   elmdb_dbi->elmdb_env = args->elmdb_env;
-  enif_keep_resource(args->elmdb_env);
   res = enif_make_resource(op->msg_env, elmdb_dbi);
   enif_release_resource(elmdb_dbi);
-  enif_release_resource(args->elmdb_env);
   SEND_OK(op, res);
   return NULL;
 }
@@ -945,7 +943,7 @@ static MDB_txn* elmdb_txn_begin_handler(MDB_txn *txn, OpEntry *op) {
     enif_keep_resource(args->elmdb_env);
     res = enif_make_resource(op->msg_env, elmdb_txn);
     enif_release_resource(elmdb_txn);
-    enif_keep_resource(args->elmdb_env);
+    enif_release_resource(args->elmdb_env);
     SEND_OK(op, res);
     return txn;
   }
@@ -1290,14 +1288,15 @@ static ERL_NIF_TERM elmdb_txn_cursor_get(ErlNifEnv* env, int argc, const ERL_NIF
        (enif_is_atom(env, argv[2]) || enif_is_tuple(env, argv[2])))) {
     return BADARG;
   }
+  enif_keep_resource(elmdb_cur);
   enif_mutex_lock(elmdb_cur->elmdb_txn->elmdb_env->status_lock);
   CHECK_ENV(elmdb_cur->elmdb_txn->elmdb_env);
   if(elmdb_cur->elmdb_txn->ref != elmdb_cur->elmdb_txn->elmdb_env->active_txn_ref) {
     enif_mutex_unlock(elmdb_cur->elmdb_txn->elmdb_env->status_lock);
+    enif_release_resource(elmdb_cur);
     return ERR(ATOM_TXN_CLOSED);
   }
   enif_mutex_unlock(elmdb_cur->elmdb_txn->elmdb_env->status_lock);
-  enif_keep_resource(elmdb_cur);
   if(elmdb_cur->active == 0) {
     enif_release_resource(elmdb_cur);
     return ERR(ATOM_CUR_CLOSED);
@@ -1340,14 +1339,15 @@ static ERL_NIF_TERM elmdb_txn_cursor_put(ErlNifEnv* env, int argc, const ERL_NIF
        enif_is_binary(env, argv[3]))) {
     return BADARG;
   }
+  enif_keep_resource(elmdb_cur);
   enif_mutex_lock(elmdb_cur->elmdb_txn->elmdb_env->status_lock);
   CHECK_ENV(elmdb_cur->elmdb_txn->elmdb_env);
   if(elmdb_cur->elmdb_txn->ref != elmdb_cur->elmdb_txn->elmdb_env->active_txn_ref) {
     enif_mutex_unlock(elmdb_cur->elmdb_txn->elmdb_env->status_lock);
+    enif_release_resource(elmdb_cur);
     return ERR(ATOM_TXN_CLOSED);
   }
   enif_mutex_unlock(elmdb_cur->elmdb_txn->elmdb_env->status_lock);
-  enif_keep_resource(elmdb_cur);
   if(elmdb_cur->active == 0) {
     enif_release_resource(elmdb_cur);
     return ERR(ATOM_CUR_CLOSED);
@@ -2044,7 +2044,9 @@ static void elmdb_env_dtor(ErlNifEnv *env, void *resource) {
   if(elmdb_env->shutdown == 0) {
     elmdb_env->shutdown = 1;
     enif_mutex_unlock(elmdb_env->status_lock);
+    enif_mutex_lock(elmdb_env->txn_lock);
     enif_cond_signal(elmdb_env->txn_cond);
+    enif_mutex_unlock(elmdb_env->txn_lock);
     enif_thread_join(elmdb_env->tid, NULL);
     enif_mutex_destroy(elmdb_env->status_lock);
     enif_mutex_destroy(elmdb_env->op_lock);
