@@ -697,11 +697,11 @@ static int get_env_open_opts(ErlNifEnv *env, ERL_NIF_TERM opts, uint64_t *mapsiz
       if(tup_arity == 2) {
 
         if(enif_is_identical(tup_array[0], ATOM_MAPSIZE) != 0 &&
-           enif_get_uint64(env, tup_array[1], &_mapsize) != 0)
+           enif_get_uint64(env, tup_array[1], &_mapsize) == 0)
           return 0;
 
         if(enif_is_identical(tup_array[0], ATOM_MAXDBS) != 0 &&
-           enif_get_uint(env, tup_array[1], &_maxdbs) != 0)
+           enif_get_uint(env, tup_array[1], &_maxdbs) == 0)
           return 0;
       } else return 0;
     }
