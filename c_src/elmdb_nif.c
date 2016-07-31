@@ -1204,6 +1204,7 @@ static MDB_txn* elmdb_txn_cursor_open_handler(MDB_txn *txn, OpEntry *op) {
   if(ret == MDB_SUCCESS) {
     res = enif_make_resource(op->msg_env, elmdb_cur);
     enif_release_resource(elmdb_cur);
+    enif_keep_resource(args->elmdb_txn);
     SEND_OK(op, res);
   }
   else {
