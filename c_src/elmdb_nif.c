@@ -464,7 +464,7 @@ static ElmdbEnv* open_env(const char *path, int mapsize, int maxdbs, int envflag
   elmdb_env->txn_lock       = NULL;
   elmdb_env->txn_cond       = NULL;
   elmdb_env->active_txn_ref = 0;
-  elmdb_env->txn_ref_cnt        = 0;
+  elmdb_env->txn_ref_cnt    = 0;
   elmdb_env->shutdown       = 0;
   strncpy(elmdb_env->path, path, MAXPATHLEN);
   STAILQ_INIT(&elmdb_env->op_queue);
@@ -576,6 +576,7 @@ static void* elmdb_env_thread(void *p) {
   enif_release_resource((void*)elmdb_env);
   enif_mutex_lock(elmdb_env->txn_lock);
   SEND_OK(args, term);
+  enif_free_env(args->msg_env);
   while(elmdb_env->shutdown == 0) {
     enif_cond_wait(elmdb_env->txn_cond, elmdb_env->txn_lock);
     while(!STAILQ_EMPTY(&elmdb_env->txn_queue)) {
@@ -614,7 +615,7 @@ static void* elmdb_env_thread(void *p) {
         mdb_txn_abort(txn);
         txn = NULL;
       }
-      FREE(q_txn);
+      FREE_OP(q_txn);
     }
   }
   enif_mutex_unlock(elmdb_env->txn_lock);
