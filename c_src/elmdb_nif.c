@@ -584,12 +584,7 @@ static void* elmdb_env_thread(void *p) {
       enif_mutex_unlock(elmdb_env->txn_lock);
       txn = q_txn->handler(txn, q_txn);
       enif_mutex_lock(elmdb_env->txn_lock);
-      while(txn != NULL && elmdb_env->active_txn_ref > 0) {
-        if(elmdb_env->shutdown > 0) {
-          enif_mutex_unlock(elmdb_env->txn_lock);
-          mdb_txn_abort(txn);
-          goto shutdown;
-        }
+      while(txn != NULL && elmdb_env->active_txn_ref > 0 && elmdb_env->shutdown == 0) {
         enif_mutex_unlock(elmdb_env->txn_lock);
         enif_mutex_lock(elmdb_env->op_lock);
         while(!STAILQ_EMPTY(&elmdb_env->op_queue)) {
