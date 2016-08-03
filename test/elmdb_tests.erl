@@ -182,9 +182,7 @@ txn_put_get({Env, Dbi, _}) ->
             ?assertMatch({ok, <<"1">>}, elmdb:get(Dbi, <<"a">>)),
             ?assertMatch({error, {txn_closed, _}}, elmdb:txn_get(Txn2, Dbi, <<"a">>)),
             ?assertMatch({error, {txn_closed, _}}, elmdb:txn_commit(Txn2)),
-            ?assertMatch({error, {txn_closed, _}}, elmdb:txn_abort(Txn2)),
-            %% prevent garbage collection
-            {ok, Txn1, Txn2}
+            ?assertMatch({error, {txn_closed, _}}, elmdb:txn_abort(Txn2))
     end.
 
 txn_cursor({Env, Dbi, _}) ->
@@ -209,9 +207,7 @@ txn_cursor({Env, Dbi, _}) ->
             ?assertMatch({ok, <<"b">>, <<"2">>}, elmdb:txn_cursor_get(Cur, {set, <<"b">>})),
             ?assertMatch(not_found, elmdb:txn_cursor_get(Cur, {set, <<"c">>})),
             ?assertMatch({ok, <<"d">>, <<"4">>}, elmdb:txn_cursor_get(Cur, {set_range, <<"c">>})),
-            ?assertMatch(ok, elmdb:txn_commit(Txn)),
-            %% prevent garbage collection
-            {ok, Txn, Cur}
+            ?assertMatch(ok, elmdb:txn_commit(Txn))
     end.
 
 basic_setup() ->
