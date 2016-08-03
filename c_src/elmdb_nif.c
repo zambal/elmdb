@@ -232,34 +232,22 @@ static ERL_NIF_TERM ATOM_SET_RANGE;
 
 #define OP_HANDLER(handler) (MDB_txn* (*)(MDB_txn *, OpEntry*))handler
 
-#define NEW(stype, var)                                 \
-  stype *var;                                           \
-  var = (stype *) enif_alloc(sizeof(stype));            \
-  var->msg_env = enif_alloc_env();                      \
-  enif_self(env, &var->caller);                         \
-  var->ref = enif_make_copy(var->msg_env, argv[0]);     \
+#define NEW_OP_(op_var, op_args, op_handler)                   \
+  OpEntry *op_var;                                             \
+  op_var = (OpEntry*) enif_alloc(sizeof(OpEntry));             \
+  op_var->msg_env = enif_alloc_env();                          \
+  enif_self(env, &op_var->caller);                             \
+  op_var->ref = enif_make_copy(op_var->msg_env, argv[0]);      \
+  op_var->args = op_args;                                      \
+  op_var->handler = op_handler;                                \
 
-#define NEW_OP_(var, args, op_handler)                     \
-  OpEntry *var;                                            \
-  var = (OpEntry*) enif_alloc(sizeof(OpEntry));            \
-  var->msg_env = enif_alloc_env();                         \
-  enif_self(env, &var->caller);                            \
-  var->ref = enif_make_copy(var->msg_env, argv[0]);        \
-  var->args = NULL;                                        \
-  op->args = args;                                         \
-  op->handler = op_handler;                                \
+#define NEW_OP(op_var, op_args, op_name)                \
+  NEW_OP_(op_var, op_args, OP_HANDLER(op_name));        \
 
-#define NEW_OP(var, args, handler)              \
-  NEW_OP_(var, args, OP_HANDLER(handler));      \
-
-#define FREE(var)                               \
-  enif_free_env(var->msg_env);                  \
-  enif_free(var);                               \
-
-#define FREE_OP(var)                            \
-  enif_free_env(var->msg_env);                  \
-  if(var->args != NULL) enif_free(var->args);   \
-  enif_free(var);                               \
+#define FREE_OP(op_var)                                 \
+  enif_free_env(op_var->msg_env);                       \
+  if(op_var->args != NULL) enif_free(op_var->args);     \
+  enif_free(op_var);                                    \
 
 #define PUSH(queue, x) STAILQ_INSERT_TAIL(&queue, x, entries)
 #define POP(queue, var)                         \
