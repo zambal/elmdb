@@ -1233,11 +1233,13 @@ static MDB_txn* elmdb_txn_cursor_get_handler(MDB_txn *txn, OpEntry *op) {
     bin_key = enif_make_new_binary(op->msg_env, args->key.mv_size, &term_key);
     if(!bin_key) {
       SEND_ERRNO(op, ENOMEM);
+      goto done;
     }
     memcpy(bin_key, args->key.mv_data, args->key.mv_size);
     bin_val = enif_make_new_binary(op->msg_env, val.mv_size, &term_val);
     if(bin_val == NULL) {
       SEND_ERRNO(op, ENOMEM);
+      goto done;
     }
     memcpy(bin_val, val.mv_data, val.mv_size);
     SEND(op, enif_make_tuple3(op->msg_env, ATOM_OK, term_key, term_val));
@@ -1246,6 +1248,8 @@ static MDB_txn* elmdb_txn_cursor_get_handler(MDB_txn *txn, OpEntry *op) {
     SEND(op, ATOM_NOT_FOUND);
   }
   else SEND_ERRNO(op, ret);
+
+ done:
   enif_release_resource(args->elmdb_cur);
   return txn;
 }
@@ -1346,19 +1350,20 @@ static MDB_txn* elmdb_async_put_handler(MDB_txn *txn, OpEntry *op) {
   int ret;
  if((ret = mdb_txn_begin(args->elmdb_dbi->elmdb_env->env, NULL, 0, &txn)) != MDB_SUCCESS) {
     SEND_ERRNO(op, ret);
-    return NULL;
+    goto done;
   }
   if((ret = mdb_put(txn, args->elmdb_dbi->dbi, &args->key, &args->val, 0)) != MDB_SUCCESS) {
     mdb_txn_abort(txn);
     SEND_ERRNO(op, ret);
-    return NULL;
+    goto done;
   }
   if((ret = mdb_txn_commit(txn)) != MDB_SUCCESS) {
     SEND_ERRNO(op, ret);
-    return NULL;
+    goto done;
   }
-
   SEND(op, ATOM_OK);
+
+ done:
   enif_release_resource(args->elmdb_dbi);
   return NULL;
 }
