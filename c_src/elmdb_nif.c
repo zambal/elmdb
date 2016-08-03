@@ -873,6 +873,8 @@ static MDB_txn* elmdb_db_open_handler(MDB_txn *txn, OpEntry *op) {
   return NULL;
 
  err:
+  if(name != NULL)
+    enif_free(name);
   enif_release_resource(args->elmdb_env);
   return NULL;
 }
