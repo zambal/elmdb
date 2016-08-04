@@ -1649,7 +1649,6 @@ static ERL_NIF_TERM elmdb_put_new(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
  */
 static ERL_NIF_TERM elmdb_get(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
   ElmdbDbi *elmdb_dbi;
-  ERL_NIF_TERM err;
   ErlNifBinary key;
   ERL_NIF_TERM val;
   unsigned char *bin;
@@ -1668,28 +1667,23 @@ static ERL_NIF_TERM elmdb_get(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
   mkey.mv_size  = key.size;
   mkey.mv_data  = key.data;
 
-  CHECK(mdb_txn_begin(elmdb_dbi->elmdb_env->env, NULL, MDB_RDONLY, &txn), err1);
+  if((ret = mdb_txn_begin(elmdb_dbi->elmdb_env->env, NULL, MDB_RDONLY, &txn)) != MDB_SUCCESS)
+    return ERRNO(ret);
+
   ret = mdb_get(txn, elmdb_dbi->dbi, &mkey, &mdata);
+  mdb_txn_abort(txn);
   if(MDB_NOTFOUND == ret) {
-    mdb_txn_abort(txn);
     return ATOM_NOT_FOUND;
   }
   if(ret != MDB_SUCCESS)
-    FAIL_ERRNO(ret, err2);
+    return ERRNO(ret);
 
   bin = enif_make_new_binary(env, mdata.mv_size, &val);
   if(bin == NULL)
-    FAIL_ERRNO(ENOMEM, err2);
+    ERRNO(ENOMEM);
   memcpy(bin, mdata.mv_data, mdata.mv_size);
 
-  CHECK(mdb_txn_commit(txn), err1);
-
   return OK(val);
-
- err2:
-  mdb_txn_abort(txn);
- err1:
-  return err;
 }
 
 /**
