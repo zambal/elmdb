@@ -196,7 +196,7 @@ put(_Dbi, _Key, _Val) ->
 put_new(_Dbi, _Key, _Val) ->
     ?NOT_LOADED.
 
--spec get(dbi(), key()) -> {ok, val()} | elmdb_error().
+-spec get(dbi(), key()) -> {ok, val()} | not_found | elmdb_error().
 get(_Dbi, _Key) ->
     ?NOT_LOADED.
 
@@ -253,7 +253,7 @@ update_put(Txn, Dbi, Key, Val, Timeout) ->
 nif_update_put(_Ref, _Txn, _Dbi, _Key, _Val) ->
     ?NOT_LOADED.
 
--spec update_get(dbi(), key()) -> {ok, val(), txn()} | elmdb_error().
+-spec update_get(dbi(), key()) -> {ok, val(), txn()} | not_found | elmdb_error().
 update_get(Dbi, Key) ->
     update_get(Dbi, Key, ?TIMEOUT).
 

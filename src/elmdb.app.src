@@ -1,7 +1,7 @@
 {application, elmdb,
  [
   {description, "Erlang NIF driver for LMDB. A fast, compact and transactional key-value data store."},
-  {vsn, "0.3.5"},
+  {vsn, "0.3.6"},
   {registered, []},
   {applications, [
                   kernel,
