@@ -50,8 +50,14 @@
 
          async_put/3,
          async_put/4,
+         async_put_new/3,
+         async_put_new/4,
          async_get/2,
          async_get/3,
+         async_delete/2,
+         async_delete/3,
+         async_drop/1,
+         async_drop/2,
 
          update_put/4,
          update_put/5,
@@ -71,8 +77,14 @@
          txn_begin/2,
          txn_put/4,
          txn_put/5,
+         txn_put_new/4,
+         txn_put_new/5,
          txn_get/3,
          txn_get/4,
+         txn_delete/3,
+         txn_delete/4,
+         txn_drop/2,
+         txn_drop/3,
          txn_commit/1,
          txn_commit/2,
          txn_abort/1,
@@ -200,11 +212,11 @@ put_new(_Dbi, _Key, _Val) ->
 get(_Dbi, _Key) ->
     ?NOT_LOADED.
 
--spec delete(dbi(), key()) -> ok | elmdb_error().
+-spec delete(dbi(), key()) -> ok | not_found | elmdb_error().
 delete(_Dbi, _Key) ->
     ?NOT_LOADED.
 
--spec drop(dbi()) -> ok | elmdb_error().
+-spec drop(dbi()) -> ok | not_found | elmdb_error().
 drop(_Dbi) ->
     ?NOT_LOADED.
 
@@ -223,6 +235,21 @@ async_put(Dbi, Key, Val, Timeout) ->
 nif_async_put(_Ref, _Dbi, _Key, _Val) ->
     ?NOT_LOADED.
 
+-spec async_put_new(dbi(), key(), val()) -> ok | elmdb_error().
+async_put_new(Dbi, Key, Val) ->
+    async_put_new(Dbi, Key, Val, ?TIMEOUT).
+
+-spec async_put_new(dbi(), key(), val(), non_neg_integer()) -> ok | elmdb_error().
+async_put_new(Dbi, Key, Val, Timeout) ->
+    Ref = make_ref(),
+    case nif_async_put_new(Ref, Dbi, Key, Val) of
+        ok    -> recv_async(Ref, Timeout);
+        Error -> Error
+    end.
+
+nif_async_put_new(_Ref, _Dbi, _Key, _Val) ->
+    ?NOT_LOADED.
+
 -spec async_get(dbi(), key()) -> {ok, val()} | not_found | elmdb_error().
 async_get(Dbi, Key) ->
     async_get(Dbi, Key, ?TIMEOUT).
@@ -236,6 +263,36 @@ async_get(Dbi, Key, Timeout) ->
     end.
 
 nif_async_get(_Ref, _Dbi, _Key) ->
+    ?NOT_LOADED.
+
+-spec async_delete(dbi(), key()) -> ok | not_found | elmdb_error().
+async_delete(Dbi, Key) ->
+    async_delete(Dbi, Key, ?TIMEOUT).
+
+-spec async_delete(dbi(), key(), non_neg_integer()) -> ok | not_found | elmdb_error().
+async_delete(Dbi, Key, Timeout) ->
+    Ref = make_ref(),
+    case nif_async_delete(Ref, Dbi, Key) of
+        ok    -> recv_async(Ref, Timeout);
+        Error -> Error
+    end.
+
+nif_async_delete(_Ref, _Dbi, _Key) ->
+    ?NOT_LOADED.
+
+-spec async_drop(dbi()) -> ok | not_found | elmdb_error().
+async_drop(Dbi) ->
+    async_drop(Dbi, ?TIMEOUT).
+
+-spec async_drop(dbi(), non_neg_integer()) -> ok | not_found | elmdb_error().
+async_drop(Dbi, Timeout) ->
+    Ref = make_ref(),
+    case nif_async_drop(Ref, Dbi) of
+        ok    -> recv_async(Ref, Timeout);
+        Error -> Error
+    end.
+
+nif_async_drop(_Ref, _Dbi) ->
     ?NOT_LOADED.
 
 -spec update_put(txn(), dbi(), key(), val()) -> ok | elmdb_error().
@@ -326,6 +383,21 @@ txn_put(Txn, Dbi, Key, Val, Timeout) ->
 nif_txn_put(_Ref, _Txn, _Dbi, _Key, _Val) ->
     ?NOT_LOADED.
 
+-spec txn_put_new(txn(), dbi(), key(), val()) -> ok | elmdb_error().
+txn_put_new(Txn, Dbi, Key, Val) ->
+    txn_put_new(Txn, Dbi, Key, Val, ?TIMEOUT).
+
+-spec txn_put_new(txn(), dbi(), key(), val(), non_neg_integer()) -> ok | elmdb_error().
+txn_put_new(Txn, Dbi, Key, Val, Timeout) ->
+    Ref = make_ref(),
+    case nif_txn_put_new(Ref, Txn, Dbi, Key, Val) of
+        ok    -> recv_async(Ref, Timeout);
+        Error -> Error
+    end.
+
+nif_txn_put_new(_Ref, _Txn, _Dbi, _Key, _Val) ->
+    ?NOT_LOADED.
+
 -spec txn_get(txn(), dbi(), key()) -> {ok, val()} | not_found | elmdb_error().
 txn_get(Txn, Dbi, Key) ->
     txn_get(Txn, Dbi, Key, ?TIMEOUT).
@@ -339,6 +411,36 @@ txn_get(Txn, Dbi, Key, Timeout) ->
     end.
 
 nif_txn_get(_Ref, _Txn, _Dbi, _Key) ->
+    ?NOT_LOADED.
+
+-spec txn_delete(txn(), dbi(), key()) -> ok | not_found | elmdb_error().
+txn_delete(Txn, Dbi, Key) ->
+    txn_delete(Txn, Dbi, Key, ?TIMEOUT).
+
+-spec txn_delete(txn(), dbi(), key(), non_neg_integer()) -> ok | not_found | elmdb_error().
+txn_delete(Txn, Dbi, Key, Timeout) ->
+    Ref = make_ref(),
+    case nif_txn_delete(Ref, Txn, Dbi, Key) of
+        ok    -> recv_async(Ref, Timeout);
+        Error -> Error
+    end.
+
+nif_txn_delete(_Ref, _Txn, _Dbi, _Key) ->
+    ?NOT_LOADED.
+
+-spec txn_drop(txn(), dbi()) -> ok | not_found | elmdb_error().
+txn_drop(Txn, Dbi) ->
+    txn_drop(Txn, Dbi, ?TIMEOUT).
+
+-spec txn_drop(txn(), dbi(), non_neg_integer()) -> ok | not_found | elmdb_error().
+txn_drop(Txn, Dbi, Timeout) ->
+    Ref = make_ref(),
+    case nif_txn_drop(Ref, Txn, Dbi) of
+        ok    -> recv_async(Ref, Timeout);
+        Error -> Error
+    end.
+
+nif_txn_drop(_Ref, _Txn, _Dbi) ->
     ?NOT_LOADED.
 
 -spec txn_commit(txn()) -> ok | elmdb_error().

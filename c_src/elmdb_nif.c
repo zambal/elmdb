@@ -151,7 +151,7 @@ typedef struct {
 typedef struct {
   ElmdbTxn *elmdb_txn;
   ElmdbDbi *elmdb_dbi;
-} cursor_open_args;
+} dbi_args;
 
 typedef struct {
   ElmdbEnv *elmdb_env;
@@ -1021,6 +1021,28 @@ static ERL_NIF_TERM elmdb_txn_put(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
   return do_txn_put(env, argc, argv, elmdb_txn_put_handler);
 }
 
+static MDB_txn* elmdb_txn_put_new_handler(MDB_txn *txn, OpEntry *op) {
+  kv_args *args = (kv_args*)op->args;
+  int ret;
+  if((ret = mdb_put(txn, args->elmdb_dbi->dbi, &args->key, &args->val, MDB_NOOVERWRITE)) != MDB_SUCCESS) {
+    if(MDB_KEYEXIST == ret) {
+      SEND(op, ATOM_EXISTS);
+    } else {
+      SEND_ERRNO(op, ret);
+    }
+  }
+  else {
+    SEND(op, ATOM_OK);
+  }
+  enif_release_resource(args->elmdb_txn);
+  enif_release_resource(args->elmdb_dbi);
+  return txn;
+}
+
+static ERL_NIF_TERM elmdb_txn_put_new(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+  return do_txn_put(env, argc, argv, elmdb_txn_put_new_handler);
+}
+
 static MDB_txn* elmdb_txn_get_handler(MDB_txn *txn, OpEntry *op) {
   k_args *args = (k_args*)op->args;
   MDB_val val;
@@ -1079,6 +1101,111 @@ static ERL_NIF_TERM elmdb_txn_get(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
   args->elmdb_dbi = elmdb_dbi;
   args->key.mv_size = bin_key.size;
   args->key.mv_data = bin_key.data;
+  enif_keep_resource(elmdb_txn);
+  enif_keep_resource(elmdb_dbi);
+  enif_mutex_lock(elmdb_txn->elmdb_env->op_lock);
+  PUSH(elmdb_txn->elmdb_env->op_queue, op);
+  enif_mutex_unlock(elmdb_txn->elmdb_env->op_lock);
+  return ATOM_OK;
+}
+
+static MDB_txn* elmdb_txn_delete_handler(MDB_txn *txn, OpEntry *op) {
+  k_args *args = (k_args*)op->args;
+  int ret;
+  if((ret = mdb_del(txn, args->elmdb_dbi->dbi, &args->key, NULL)) != MDB_SUCCESS) {
+    if(ret == MDB_NOTFOUND) { SEND(op, ATOM_NOT_FOUND); }
+    else { SEND_ERRNO(op, ret); }
+  }
+  else {
+    SEND(op, ATOM_OK);
+  }
+  enif_release_resource(args->elmdb_txn);
+  enif_release_resource(args->elmdb_dbi);
+  return txn;
+}
+
+static ERL_NIF_TERM elmdb_txn_delete(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+  ElmdbTxn *elmdb_txn;
+  ElmdbDbi *elmdb_dbi;
+  ERL_NIF_TERM term_key;
+  ErlNifBinary bin_key;
+
+  if(!(argc == 4 &&
+       enif_is_ref(env, argv[0]) &&
+       enif_get_resource(env, argv[1], elmdb_txn_res, (void**)&elmdb_txn) &&
+       enif_get_resource(env, argv[2], elmdb_dbi_res, (void**)&elmdb_dbi) &&
+       enif_is_binary(env, argv[3]))) {
+    return BADARG;
+  }
+  enif_mutex_lock(elmdb_txn->elmdb_env->txn_lock);
+  CHECK_ENV(elmdb_txn->elmdb_env);
+  if(elmdb_txn->ref != elmdb_txn->elmdb_env->active_txn_ref) {
+    enif_mutex_unlock(elmdb_txn->elmdb_env->txn_lock);
+    return ERR(ATOM_TXN_CLOSED);
+  }
+  enif_mutex_unlock(elmdb_txn->elmdb_env->txn_lock);
+  if(elmdb_txn->elmdb_env->ref != elmdb_dbi->elmdb_env->ref)
+    return BADARG;
+
+  k_args *args = enif_alloc(sizeof(k_args));
+  NEW_OP(op, args, elmdb_txn_delete_handler);
+  op->txn_ref = elmdb_txn->ref;
+  term_key = enif_make_copy(op->msg_env, argv[3]);
+  if(enif_inspect_binary(env, term_key, &bin_key) == 0) {
+    FREE_OP(op);
+    return BADARG;
+  }
+  args->elmdb_txn = elmdb_txn;
+  args->elmdb_dbi = elmdb_dbi;
+  args->key.mv_size = bin_key.size;
+  args->key.mv_data = bin_key.data;
+  enif_keep_resource(elmdb_txn);
+  enif_keep_resource(elmdb_dbi);
+  enif_mutex_lock(elmdb_txn->elmdb_env->op_lock);
+  PUSH(elmdb_txn->elmdb_env->op_queue, op);
+  enif_mutex_unlock(elmdb_txn->elmdb_env->op_lock);
+  return ATOM_OK;
+}
+
+static MDB_txn* elmdb_txn_drop_handler(MDB_txn *txn, OpEntry *op) {
+  dbi_args *args = (dbi_args*)op->args;
+  int ret;
+  if((ret = mdb_drop(txn, args->elmdb_dbi->dbi, 0)) == MDB_SUCCESS) {
+    SEND(op, ATOM_OK);
+  }
+  else {
+    SEND_ERRNO(op, ret);
+  }
+  enif_release_resource(args->elmdb_txn);
+  enif_release_resource(args->elmdb_dbi);
+  return txn;
+}
+
+static ERL_NIF_TERM elmdb_txn_drop(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+  ElmdbTxn *elmdb_txn;
+  ElmdbDbi *elmdb_dbi;
+
+  if(!(argc == 3 &&
+       enif_is_ref(env, argv[0]) &&
+       enif_get_resource(env, argv[1], elmdb_txn_res, (void**)&elmdb_txn) &&
+       enif_get_resource(env, argv[2], elmdb_dbi_res, (void**)&elmdb_dbi))) {
+    return BADARG;
+  }
+  enif_mutex_lock(elmdb_txn->elmdb_env->txn_lock);
+  CHECK_ENV(elmdb_txn->elmdb_env);
+  if(elmdb_txn->ref != elmdb_txn->elmdb_env->active_txn_ref) {
+    enif_mutex_unlock(elmdb_txn->elmdb_env->txn_lock);
+    return ERR(ATOM_TXN_CLOSED);
+  }
+  enif_mutex_unlock(elmdb_txn->elmdb_env->txn_lock);
+  if(elmdb_txn->elmdb_env->ref != elmdb_dbi->elmdb_env->ref)
+    return BADARG;
+
+  dbi_args *args = enif_alloc(sizeof(dbi_args));
+  NEW_OP(op, args, elmdb_txn_drop_handler);
+  op->txn_ref = elmdb_txn->ref;
+  args->elmdb_txn = elmdb_txn;
+  args->elmdb_dbi = elmdb_dbi;
   enif_keep_resource(elmdb_txn);
   enif_keep_resource(elmdb_dbi);
   enif_mutex_lock(elmdb_txn->elmdb_env->op_lock);
@@ -1162,7 +1289,7 @@ static ERL_NIF_TERM elmdb_txn_abort(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 }
 
 static MDB_txn* elmdb_txn_cursor_open_handler(MDB_txn *txn, OpEntry *op) {
-  cursor_open_args *args = (cursor_open_args*)op->args;
+  dbi_args *args = (dbi_args*)op->args;
   ElmdbCur *elmdb_cur;
   ERL_NIF_TERM res;
   if((elmdb_cur = enif_alloc_resource(elmdb_cur_res, sizeof(ElmdbCur))) == NULL) {
@@ -1207,7 +1334,7 @@ static ERL_NIF_TERM elmdb_txn_cursor_open(ErlNifEnv* env, int argc, const ERL_NI
   if(elmdb_txn->elmdb_env->ref != elmdb_dbi->elmdb_env->ref)
     return BADARG;
 
-  cursor_open_args *args = enif_alloc(sizeof(cursor_open_args));
+  dbi_args *args = enif_alloc(sizeof(dbi_args));
   NEW_OP(op, args, elmdb_txn_cursor_open_handler);
   op->txn_ref = elmdb_txn->ref;
   args->elmdb_txn = elmdb_txn;
@@ -1367,7 +1494,7 @@ static MDB_txn* elmdb_async_put_handler(MDB_txn *txn, OpEntry *op) {
   return NULL;
 }
 
-static ERL_NIF_TERM elmdb_async_put(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+static ERL_NIF_TERM do_async_put(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[], MDB_txn* (*handler)(MDB_txn*, OpEntry*)) {
   ElmdbDbi *elmdb_dbi;
   ERL_NIF_TERM term_key;
   ERL_NIF_TERM term_val;
@@ -1383,7 +1510,7 @@ static ERL_NIF_TERM elmdb_async_put(ErlNifEnv* env, int argc, const ERL_NIF_TERM
   LOCKED_CHECK_ENV(elmdb_dbi->elmdb_env);
 
   kv_args *args = enif_alloc(sizeof(kv_args));
-  NEW_OP(op, args, elmdb_async_put_handler);
+  NEW_OP(op, args, handler);
   op->txn_ref = 0;
   term_key = enif_make_copy(op->msg_env, argv[2]);
   term_val = enif_make_copy(op->msg_env, argv[3]);
@@ -1405,6 +1532,41 @@ static ERL_NIF_TERM elmdb_async_put(ErlNifEnv* env, int argc, const ERL_NIF_TERM
   enif_cond_signal(elmdb_dbi->elmdb_env->txn_cond);
   enif_mutex_unlock(elmdb_dbi->elmdb_env->txn_lock);
   return ATOM_OK;
+}
+
+static ERL_NIF_TERM elmdb_async_put(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+  return do_async_put(env, argc, argv, elmdb_async_put_handler);
+}
+
+static MDB_txn* elmdb_async_put_new_handler(MDB_txn *txn, OpEntry *op) {
+  kv_args *args = (kv_args*)op->args;
+  int ret;
+ if((ret = mdb_txn_begin(args->elmdb_dbi->elmdb_env->env, NULL, 0, &txn)) != MDB_SUCCESS) {
+    SEND_ERRNO(op, ret);
+    goto done;
+  }
+  if((ret = mdb_put(txn, args->elmdb_dbi->dbi, &args->key, &args->val, MDB_NOOVERWRITE)) != MDB_SUCCESS) {
+    if(MDB_KEYEXIST == ret) {
+      SEND(op, ATOM_EXISTS);
+    } else {
+      SEND_ERRNO(op, ret);
+    }
+    mdb_txn_abort(txn);
+    goto done;
+  }
+  if((ret = mdb_txn_commit(txn)) != MDB_SUCCESS) {
+    SEND_ERRNO(op, ret);
+    goto done;
+  }
+  SEND(op, ATOM_OK);
+
+ done:
+  enif_release_resource(args->elmdb_dbi);
+  return NULL;
+}
+
+static ERL_NIF_TERM elmdb_async_put_new(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+  return do_async_put(env, argc, argv, elmdb_async_put_new_handler);
 }
 
 static MDB_txn* elmdb_async_get_handler(MDB_txn *txn, OpEntry *op) {
@@ -1473,6 +1635,110 @@ static ERL_NIF_TERM do_async_get(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 static ERL_NIF_TERM elmdb_async_get(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
   return do_async_get(env, argc, argv, elmdb_async_get_handler);
 }
+
+static MDB_txn* elmdb_async_delete_handler(MDB_txn *txn, OpEntry *op) {
+  k_args *args = (k_args*)op->args;
+  int ret;
+  if((ret = mdb_txn_begin(args->elmdb_dbi->elmdb_env->env, NULL, 0, &txn)) != MDB_SUCCESS) {
+    SEND_ERRNO(op, ret);
+    goto done;
+  }
+  if((ret = mdb_del(txn, args->elmdb_dbi->dbi, &args->key, NULL)) != MDB_SUCCESS) {
+    if(ret == MDB_NOTFOUND) { SEND(op, ATOM_NOT_FOUND); }
+    else { SEND_ERRNO(op, ret); }
+    mdb_txn_abort(txn);
+    goto done;
+  }
+  if((ret = mdb_txn_commit(txn)) != MDB_SUCCESS) {
+    SEND_ERRNO(op, ret);
+    goto done;
+  }
+
+  SEND(op, ATOM_OK);
+
+ done:
+  enif_release_resource(args->elmdb_dbi);
+  return NULL;
+}
+
+static ERL_NIF_TERM elmdb_async_delete(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+  ElmdbDbi *elmdb_dbi;
+  ERL_NIF_TERM term_key;
+  ErlNifBinary bin_key;
+
+  if(!(argc == 3 &&
+       enif_is_ref(env, argv[0]) &&
+       enif_get_resource(env, argv[1], elmdb_dbi_res, (void**)&elmdb_dbi) &&
+       enif_is_binary(env, argv[2]))) {
+    return BADARG;
+  }
+  LOCKED_CHECK_ENV(elmdb_dbi->elmdb_env);
+
+  k_args *args = enif_alloc(sizeof(k_args));
+  NEW_OP(op, args, elmdb_async_delete_handler);
+  op->txn_ref = 0;
+  term_key = enif_make_copy(op->msg_env, argv[2]);
+  if(enif_inspect_binary(env, term_key, &bin_key) == 0) {
+    FREE_OP(op);
+    return BADARG;
+  }
+  args->elmdb_dbi = elmdb_dbi;
+  args->key.mv_size = bin_key.size;
+  args->key.mv_data = bin_key.data;
+  enif_keep_resource(elmdb_dbi);
+  enif_mutex_lock(elmdb_dbi->elmdb_env->txn_lock);
+  PUSH(elmdb_dbi->elmdb_env->txn_queue, op);
+  enif_cond_signal(elmdb_dbi->elmdb_env->txn_cond);
+  enif_mutex_unlock(elmdb_dbi->elmdb_env->txn_lock);
+  return ATOM_OK;
+}
+
+static MDB_txn* elmdb_async_drop_handler(MDB_txn *txn, OpEntry *op) {
+  dbi_args *args = (dbi_args*)op->args;
+  int ret;
+  if((ret = mdb_txn_begin(args->elmdb_dbi->elmdb_env->env, NULL, 0, &txn)) != MDB_SUCCESS) {
+    SEND_ERRNO(op, ret);
+    goto done;
+  }
+  if((ret = mdb_drop(txn, args->elmdb_dbi->dbi, 0)) != MDB_SUCCESS) {
+    SEND_ERRNO(op, ret);
+    mdb_txn_abort(txn);
+    goto done;
+  }
+  if((ret = mdb_txn_commit(txn)) != MDB_SUCCESS) {
+    SEND_ERRNO(op, ret);
+    goto done;
+  }
+
+  SEND(op, ATOM_OK);
+
+ done:
+  enif_release_resource(args->elmdb_dbi);
+  return NULL;
+}
+
+static ERL_NIF_TERM elmdb_async_drop(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+  ElmdbDbi *elmdb_dbi;
+
+  if(!(argc == 2 &&
+       enif_is_ref(env, argv[0]) &&
+       enif_get_resource(env, argv[1], elmdb_dbi_res, (void**)&elmdb_dbi))) {
+    return BADARG;
+  }
+  LOCKED_CHECK_ENV(elmdb_dbi->elmdb_env);
+
+  dbi_args *args = enif_alloc(sizeof(dbi_args));
+  NEW_OP(op, args, elmdb_async_drop_handler);
+  op->txn_ref = 0;
+  args->elmdb_dbi = elmdb_dbi;
+  enif_keep_resource(elmdb_dbi);
+  enif_mutex_lock(elmdb_dbi->elmdb_env->txn_lock);
+  PUSH(elmdb_dbi->elmdb_env->txn_queue, op);
+  enif_cond_signal(elmdb_dbi->elmdb_env->txn_cond);
+  enif_mutex_unlock(elmdb_dbi->elmdb_env->txn_lock);
+  return ATOM_OK;
+}
+
 
 static MDB_txn* elmdb_update_get_handler(MDB_txn *txn, OpEntry *op) {
   k_args *args = (k_args*)op->args;
@@ -2148,10 +2414,13 @@ static ErlNifFunc nif_funcs [] = {
   {"delete",   2, elmdb_delete, 0},
   {"drop",     1, elmdb_drop, 0},
 
-  {"nif_async_put",  4, elmdb_async_put, 0},
-  {"nif_async_get",  3, elmdb_async_get, 0},
-  {"nif_update_put", 5, elmdb_update_put, 0},
-  {"nif_update_get", 3, elmdb_update_get, 0},
+  {"nif_async_put",     4, elmdb_async_put, 0},
+  {"nif_async_put_new", 4, elmdb_async_put_new, 0},
+  {"nif_async_get",     3, elmdb_async_get, 0},
+  {"nif_async_delete",  3, elmdb_async_delete, 0},
+  {"nif_async_drop",    2, elmdb_async_drop, 0},
+  {"nif_update_put",    5, elmdb_update_put, 0},
+  {"nif_update_get",    3, elmdb_update_get, 0},
 
   {"ro_txn_begin",  1, elmdb_ro_txn_begin, 0},
   {"ro_txn_get",    3, elmdb_ro_txn_get, 0},
@@ -2162,11 +2431,14 @@ static ErlNifFunc nif_funcs [] = {
   {"ro_txn_cursor_close", 1, elmdb_ro_txn_cursor_close, 0},
   {"ro_txn_cursor_get",   2, elmdb_ro_txn_cursor_get, 0},
 
-  {"nif_txn_begin", 2,  elmdb_txn_begin, 0},
-  {"nif_txn_put",   5,  elmdb_txn_put, 0},
-  {"nif_txn_get",   4,  elmdb_txn_get, 0},
-  {"nif_txn_commit", 2, elmdb_txn_commit, 0},
-  {"nif_txn_abort", 2,  elmdb_txn_abort, 0},
+  {"nif_txn_begin",   2,  elmdb_txn_begin, 0},
+  {"nif_txn_put",     5,  elmdb_txn_put, 0},
+  {"nif_txn_put_new", 5,  elmdb_txn_put_new, 0},
+  {"nif_txn_get",     4,  elmdb_txn_get, 0},
+  {"nif_txn_delete",  4,  elmdb_txn_delete, 0},
+  {"nif_txn_drop",    3,  elmdb_txn_drop, 0},
+  {"nif_txn_commit",  2, elmdb_txn_commit, 0},
+  {"nif_txn_abort",   2,  elmdb_txn_abort, 0},
 
   {"nif_txn_cursor_open", 3, elmdb_txn_cursor_open, 0},
   {"nif_txn_cursor_get",  3, elmdb_txn_cursor_get, 0},

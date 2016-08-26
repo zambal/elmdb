@@ -49,8 +49,14 @@ basic_test_() ->
          fun sync_put_get/1,
          fun async_put_get/1,
          fun put_new/1,
+         fun async_put_new/1,
+         fun txn_put_new/1,
          fun delete/1,
+         fun async_delete/1,
+         fun txn_delete/1,
          fun drop/1,
+         fun async_drop/1,
+         fun txn_drop/1,
          fun update/1,
          fun interfere_update/1,
          fun ro_txn_get/1,
@@ -90,12 +96,51 @@ put_new({_, Dbi, _}) ->
             ?assertMatch({ok, <<"2">>}, elmdb:get(Dbi, <<"b">>))
     end.
 
+async_put_new({_, Dbi, _}) ->
+    fun() ->
+            ?assertMatch(ok, elmdb:async_put_new(Dbi, <<"a">>, <<"1">>)),
+            ?assertMatch(ok, elmdb:async_put_new(Dbi, <<"b">>, <<"2">>)),
+            ?assertMatch(exists, elmdb:async_put_new(Dbi, <<"b">>, <<"3">>)),
+            ?assertMatch({ok, <<"2">>}, elmdb:get(Dbi, <<"b">>))
+    end.
+
+txn_put_new({Env, Dbi, _}) ->
+    fun() ->
+            {ok, Txn} = elmdb:txn_begin(Env),
+            ?assertMatch(ok, elmdb:txn_put_new(Txn, Dbi, <<"a">>, <<"1">>)),
+            ?assertMatch(ok, elmdb:txn_put_new(Txn, Dbi, <<"b">>, <<"2">>)),
+            ?assertMatch(exists, elmdb:txn_put_new(Txn, Dbi, <<"b">>, <<"3">>)),
+            ?assertMatch({ok, <<"2">>}, elmdb:txn_get(Txn, Dbi, <<"b">>)),
+            ?assertMatch(ok, elmdb:txn_commit(Txn))
+    end.
+
 delete({_, Dbi, _}) ->
     fun() ->
             ?assertMatch(ok, elmdb:put(Dbi, <<"a">>, <<"1">>)),
             ?assertMatch({ok, <<"1">>}, elmdb:get(Dbi, <<"a">>)),
             ?assertMatch(ok, elmdb:delete(Dbi, <<"a">>)),
+            ?assertMatch(not_found, elmdb:delete(Dbi, <<"a">>)),
             ?assertMatch(not_found, elmdb:get(Dbi, <<"a">>))
+    end.
+
+async_delete({_, Dbi, _}) ->
+    fun() ->
+            ?assertMatch(ok, elmdb:async_put(Dbi, <<"a">>, <<"1">>)),
+            ?assertMatch({ok, <<"1">>}, elmdb:async_get(Dbi, <<"a">>)),
+            ?assertMatch(ok, elmdb:async_delete(Dbi, <<"a">>)),
+            ?assertMatch(not_found, elmdb:async_delete(Dbi, <<"a">>)),
+            ?assertMatch(not_found, elmdb:async_get(Dbi, <<"a">>))
+    end.
+
+txn_delete({Env, Dbi, _}) ->
+    fun() ->
+            {ok, Txn} = elmdb:txn_begin(Env),
+            ?assertMatch(ok, elmdb:txn_put(Txn, Dbi, <<"a">>, <<"1">>)),
+            ?assertMatch({ok, <<"1">>}, elmdb:txn_get(Txn, Dbi, <<"a">>)),
+            ?assertMatch(ok, elmdb:txn_delete(Txn, Dbi, <<"a">>)),
+            ?assertMatch(not_found, elmdb:txn_delete(Txn, Dbi, <<"a">>)),
+            ?assertMatch(not_found, elmdb:txn_get(Txn, Dbi, <<"a">>)),
+            ?assertMatch(ok, elmdb:txn_commit(Txn))
     end.
 
 drop({_, Dbi, _}) ->
@@ -107,6 +152,30 @@ drop({_, Dbi, _}) ->
             ?assertMatch(not_found, elmdb:get(Dbi, <<"a">>)),
             ?assertMatch(not_found, elmdb:get(Dbi, <<"b">>)),
             ?assertMatch(not_found, elmdb:get(Dbi, <<"c">>))
+    end.
+
+async_drop({_, Dbi, _}) ->
+    fun() ->
+            ?assertMatch(ok, elmdb:async_put(Dbi, <<"a">>, <<"1">>)),
+            ?assertMatch(ok, elmdb:async_put(Dbi, <<"b">>, <<"2">>)),
+            ?assertMatch(ok, elmdb:async_put(Dbi, <<"c">>, <<"3">>)),
+            ?assertMatch(ok, elmdb:async_drop(Dbi)),
+            ?assertMatch(not_found, elmdb:async_get(Dbi, <<"a">>)),
+            ?assertMatch(not_found, elmdb:async_get(Dbi, <<"b">>)),
+            ?assertMatch(not_found, elmdb:async_get(Dbi, <<"c">>))
+    end.
+
+txn_drop({Env, Dbi, _}) ->
+    fun() ->
+            {ok, Txn} = elmdb:txn_begin(Env),
+            ?assertMatch(ok, elmdb:txn_put(Txn, Dbi, <<"a">>, <<"1">>)),
+            ?assertMatch(ok, elmdb:txn_put(Txn, Dbi, <<"b">>, <<"2">>)),
+            ?assertMatch(ok, elmdb:txn_put(Txn, Dbi, <<"c">>, <<"3">>)),
+            ?assertMatch(ok, elmdb:txn_drop(Txn, Dbi)),
+            ?assertMatch(not_found, elmdb:txn_get(Txn, Dbi, <<"a">>)),
+            ?assertMatch(not_found, elmdb:txn_get(Txn, Dbi, <<"b">>)),
+            ?assertMatch(not_found, elmdb:txn_get(Txn, Dbi, <<"c">>)),
+            ?assertMatch(ok, elmdb:txn_commit(Txn))
     end.
 
 update({_, Dbi, _}) ->
