@@ -314,7 +314,7 @@ nif_update_put(_Ref, _Txn, _Dbi, _Key, _Val) ->
 update_get(Dbi, Key) ->
     update_get(Dbi, Key, ?TIMEOUT).
 
--spec update_get(dbi(), key(), non_neg_integer()) -> {ok, val(), txn()} | elmdb_error().
+-spec update_get(dbi(), key(), non_neg_integer()) -> {ok, val(), txn()} | not_found | elmdb_error().
 update_get(Dbi, Key, Timeout) ->
     Ref = make_ref(),
     case nif_update_get(Ref, Dbi, Key) of
