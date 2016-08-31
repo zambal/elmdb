@@ -235,11 +235,11 @@ async_put(Dbi, Key, Val, Timeout) ->
 nif_async_put(_Ref, _Dbi, _Key, _Val) ->
     ?NOT_LOADED.
 
--spec async_put_new(dbi(), key(), val()) -> ok | elmdb_error().
+-spec async_put_new(dbi(), key(), val()) -> ok | exists | elmdb_error().
 async_put_new(Dbi, Key, Val) ->
     async_put_new(Dbi, Key, Val, ?TIMEOUT).
 
--spec async_put_new(dbi(), key(), val(), non_neg_integer()) -> ok | elmdb_error().
+-spec async_put_new(dbi(), key(), val(), non_neg_integer()) -> ok | exists | elmdb_error().
 async_put_new(Dbi, Key, Val, Timeout) ->
     Ref = make_ref(),
     case nif_async_put_new(Ref, Dbi, Key, Val) of
@@ -383,11 +383,11 @@ txn_put(Txn, Dbi, Key, Val, Timeout) ->
 nif_txn_put(_Ref, _Txn, _Dbi, _Key, _Val) ->
     ?NOT_LOADED.
 
--spec txn_put_new(txn(), dbi(), key(), val()) -> ok | elmdb_error().
+-spec txn_put_new(txn(), dbi(), key(), val()) -> ok | exists | elmdb_error().
 txn_put_new(Txn, Dbi, Key, Val) ->
     txn_put_new(Txn, Dbi, Key, Val, ?TIMEOUT).
 
--spec txn_put_new(txn(), dbi(), key(), val(), non_neg_integer()) -> ok | elmdb_error().
+-spec txn_put_new(txn(), dbi(), key(), val(), non_neg_integer()) -> ok | exists | elmdb_error().
 txn_put_new(Txn, Dbi, Key, Val, Timeout) ->
     Ref = make_ref(),
     case nif_txn_put_new(Ref, Txn, Dbi, Key, Val) of
