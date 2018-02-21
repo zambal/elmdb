@@ -452,7 +452,7 @@ static int to_mdb_cursor_op(ErlNifEnv *env, ERL_NIF_TERM op, MDB_val *key) {
   return 0;
 }
 
-static ElmdbEnv* open_env(const char *path, int mapsize, int maxdbs, int envflags, int *ret) {
+static ElmdbEnv* open_env(const char *path, uint64_t mapsize, int maxdbs, int envflags, int *ret) {
   ElmdbEnv *elmdb_env;
 
   if((elmdb_env = enif_alloc_resource(elmdb_env_res, sizeof(ElmdbEnv))) == NULL)
@@ -563,7 +563,7 @@ static void* elmdb_env_thread(void *p) {
   if((elmdb_env = open_env(args->path, args->mapsize, args->maxdbs, args->envflags, &ret)) == NULL) {
     SEND_ERRNO(args, ret);
     enif_free_env(args->msg_env);
-    goto shutdown;
+    return NULL;
   }
 
   if(register_env(priv, elmdb_env) == 0) {
